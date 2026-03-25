@@ -193,9 +193,14 @@ status:      string    // "pending" | "sent" | "cancelled"
 |---|---|---|
 | POST | `/api/scrape` | Scrape URL with Cheerio, return title + text |
 | POST | `/api/upload` | Upload audio file to Appwrite Storage, return fileId |
-| POST | `/api/transcribe` | Submit file to AssemblyAI, poll for transcript |
+<!-- Split per DEC-02: polling loop must not run inside serverless function -->
+| POST | `/api/transcribe` | Submit audio file to AssemblyAI, return transcriptId only |
+| GET  | `/api/transcribe/[id]` | Poll AssemblyAI for transcript status and result |
 | POST | `/api/projects/[id]/generate` | Trigger parallel Claude generation for all channels |
-| PUT | `/api/outputs/[id]` | Update a single output (inline edit) |
+| GET  | `/api/projects/[id]/status` | Poll project generation status (pending/processing/done/failed) |
+| PUT  | `/api/outputs/[id]` | Update output content (inline edit, saves on blur) |
+| POST | `/api/outputs/[id]/regenerate` | Re-generate one channel via Claude, returns stream |
+| POST | `/api/outputs/[id]/image-prompt` | Generate image prompt via Claude, save to imagePrompt field |
 
 ---
 
@@ -217,9 +222,16 @@ src/
 │   ├── api/
 │   │   ├── scrape/route.ts
 │   │   ├── upload/route.ts
-│   │   ├── transcribe/route.ts
-│   │   ├── projects/[id]/generate/route.ts
-│   │   └── outputs/[id]/route.ts
+│   │   ├── transcribe/
+│   │   │   ├── route.ts              ← POST: submit job, return transcriptId
+│   │   │   └── [id]/route.ts         ← GET: poll status and result
+│   │   ├── projects/[id]/
+│   │   │   ├── generate/route.ts     ← POST: trigger parallel Claude generation
+│   │   │   └── status/route.ts       ← GET: return current project status field
+│   │   └── outputs/[id]/
+│   │         ├── route.ts               ← PUT: inline edit save
+│   │         ├── regenerate/route.ts    ← POST: streaming regenerate via streamContent()
+│   │         └── image-prompt/route.ts  ← POST: generate image prompt (DEC-12)
 │   ├── layout.tsx
 │   └── page.tsx                            ← Landing page
 ├── components/
@@ -250,7 +262,8 @@ src/
 │       ├── tiktok.ts
 │       ├── instagram.ts
 │       ├── linkedin.ts
-│       └── twitter.ts
+│       ├── twitter.ts
+│       └── image-prompt.ts
 └── types/
     └── index.ts                            ← Shared TypeScript types
 ```
