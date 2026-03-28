@@ -120,11 +120,12 @@ sequenceDiagram
 
     note over UploadRoute: Private bucket — file never publicly accessible (DEC-01)
     UploadRoute->>UploadRoute: storage.createFile() → private bucket
-    UploadRoute->>UploadRoute: storage.getFileDownload() → signed URL (TTL 600s)
-    UploadRoute-->>AudioUpload: { fileId, signedUrl }
+    UploadRoute-->>AudioUpload: { fileId }
 
-    note over AudioUpload,TranscribeRoute: signedUrl passed directly — never stored or returned to browser
-    AudioUpload->>TranscribeRoute: POST /api/transcribe { signedUrl, fileId }
+    note over AudioUpload,TranscribeRoute: only fileId sent — signedUrl never leaves server (DEC-01)
+    AudioUpload->>TranscribeRoute: POST /api/transcribe { fileId }
+    TranscribeRoute->>AppwriteStorage: getFileDownload(fileId) — server-side only
+    AppwriteStorage-->>TranscribeRoute: signedUrl (TTL 600s, never sent to client)
     TranscribeRoute->>AssemblyAI: POST /v2/transcript { audio_url: signedUrl }
     AssemblyAI-->>TranscribeRoute: { id: transcriptId, status: "queued" }
 

@@ -24,9 +24,10 @@
 
 - [ ] TASK-04: Implement edge middleware for dashboard route protection
       FR/NFR: FR-AUTH-03
-      DEC: DEC-10
+      DEC: DEC-10, DEC-13
       Blocks: TASK-07
       File(s): `middleware.ts`
+      Note: Use fetch() to call Appwrite REST /v1/account endpoint directly — do not import appwrite-server.ts or node-appwrite. See DEC-13.
 
 - [ ] TASK-05: Build Sidebar component with logout button
       FR/NFR: FR-AUTH-05
@@ -116,9 +117,10 @@
 
 - [ ] TASK-19: Implement POST /api/projects/[id]/generate (Promise.all across 3 Claude calls, session auth, save outputs)
       FR/NFR: FR-GEN-01, FR-GEN-02, FR-GEN-03, FR-GEN-06, NFR-01, NFR-02
-      DEC: DEC-05, DEC-11
+      DEC: DEC-05, DEC-06, DEC-11
       Blocks: TASK-20
       File(s): `src/app/api/projects/[id]/generate/route.ts`, `src/lib/claude.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`
+      Note: After Promise.all resolves, before saving outputs: (1) call JSON.parse(instagramContent) and verify result is array of exactly 10 strings; (2) if validation fails, retry Instagram Claude call once (single call, not Promise.all); (3) if retry also fails, set project status to "failed", do not save partial outputs, surface error message to UI; (4) only set status "done" if all 3 outputs pass validation.
 
 - [ ] TASK-20: Implement GET /api/projects/[id]/status (return current project status field)
       FR/NFR: FR-GEN-03, FR-GEN-05
@@ -183,6 +185,7 @@
       DEC: DEC-05, DEC-09
       Blocks: none
       File(s): `src/app/api/outputs/[id]/regenerate/route.ts`, `src/lib/claude.ts`
+      Note: Implement using TransformStream — pipe chunks to Response AND accumulate for Appwrite DB write after stream closes. Do not await stream before returning Response (breaks streaming UX). Do not skip DB write (breaks inline edit state).
 
 - [ ] TASK-29: Build image-prompt system prompt
       FR/NFR: FR-PREV-06

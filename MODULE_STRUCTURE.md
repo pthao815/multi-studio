@@ -180,11 +180,12 @@
 **Type:** api-route
 **Exports:** `POST`
 **Responsibilities:**
-- Accepts `{ signedUrl, fileId }`, submits job to AssemblyAI, returns `{ transcriptId }` immediately
+- Accepts `{ fileId }`, calls `storage.getFileDownload(fileId)` server-side to obtain signed URL before submitting to AssemblyAI — signedUrl is never exposed to client (DEC-01)
+- Submits transcription job to AssemblyAI using the server-side signed URL, returns `{ transcriptId }` immediately
 - Does NOT poll — returns as soon as AssemblyAI acknowledges the job (DEC-02)
 **Imports from:** `src/lib/assemblyai.ts`, `src/lib/appwrite-server.ts`
 **Used by:** `src/components/input/AudioUpload.tsx`
-**DEC reference:** DEC-02, DEC-05
+**DEC reference:** DEC-01, DEC-02, DEC-05
 
 ---
 
@@ -206,10 +207,11 @@
 **Responsibilities:**
 - Fetches project source content and user profile (brandVoice, brandKeywords) from Appwrite
 - Updates project `status` to `"processing"`, fires all three Claude calls via `Promise.all` (DEC-11)
+- Validates Instagram output is parseable JSON array of exactly 10 strings before saving; retries the Instagram Claude call once on validation failure; marks project `"failed"` if retry also fails — does not save partial outputs
 - Saves 3 output documents to Appwrite and updates project `status` to `"done"` or `"failed"`
 **Imports from:** `src/lib/appwrite-server.ts`, `src/lib/claude.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`
 **Used by:** `src/app/dashboard/new/page.tsx` (called after project creation)
-**DEC reference:** DEC-05, DEC-11
+**DEC reference:** DEC-05, DEC-06, DEC-11
 
 ---
 
@@ -242,8 +244,9 @@
 **Exports:** `POST`
 **Responsibilities:**
 - Fetches the output's channel, the project's source content, and user brand voice
-- Calls `streamContent()` and returns a `ReadableStream` with `Content-Type: text/event-stream`
-- Updates the output's `content` field in Appwrite after stream completes
+- Uses `TransformStream` to simultaneously: (1) pipe Claude stream chunks to the `Response` (`Content-Type: text/event-stream`) and (2) accumulate all chunks into a full string; after the stream closes, the accumulated string is saved to Appwrite via `outputs.[id].content`
+- Pattern: `const { readable, writable } = new TransformStream()` — `streamContent()` pipes to writer; `writer.close()` triggers DB write; return `new Response(readable)`
+- Do NOT await stream before returning `Response` (breaks streaming UX); do NOT skip DB write (breaks inline edit state)
 **Imports from:** `src/lib/appwrite-server.ts`, `src/lib/claude.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`, `src/lib/prompts/linkedin.ts`, `src/lib/prompts/twitter.ts`
 **Used by:** `src/app/dashboard/projects/[id]/page.tsx` (regenerate button)
 **DEC reference:** DEC-05, DEC-09
@@ -377,7 +380,7 @@
 **Type:** component
 **Exports:** `default AudioUpload`
 **Responsibilities:**
-- Drag-and-drop audio upload; calls `POST /api/upload` then `POST /api/transcribe`
+- Drag-and-drop audio upload; calls `POST /api/upload` (receives `{ fileId }` only — no signedUrl per DEC-01), then calls `POST /api/transcribe { fileId }`
 - Polls `GET /api/transcribe/[id]` every 5 seconds via `setInterval` in `useEffect` (DEC-02)
 - Surfaces transcript text to parent via `onTranscriptReady` callback when complete
 **Imports from:** `src/types/index.ts`
@@ -575,11 +578,11 @@
 **Exports:** `middleware`, `config` (matcher)
 **Responsibilities:**
 - Runs at the Vercel edge before every `/dashboard/*` request (DEC-10)
-- Reads Appwrite session cookie and redirects unauthenticated requests to `/login`
+- Calls `https://cloud.appwrite.io/v1/account` via `fetch()` forwarding the `Cookie` header; redirects to `/login` on 401 response — no SDK import, edge runtime compatible (DEC-13)
 - Sets `matcher` config to `['/dashboard/:path*']`
-**Imports from:** none (project files — uses Next.js edge APIs only)
+**Imports from:** none (project files — uses Next.js edge APIs and native `fetch` only)
 **Used by:** Next.js App Router (automatic)
-**DEC reference:** DEC-10
+**DEC reference:** DEC-10, DEC-13
 
 ---
 

@@ -4,7 +4,7 @@
 ## DEC-01: Appwrite Storage bucket must be private
 
 **Gap:** Requirements never specified whether the Appwrite Storage bucket should be public or private, yet AssemblyAI requires a publicly accessible audio URL.
-**Decision:** Bucket is private. The API route generates a server-side signed URL (TTL 600s) after upload and passes that signed URL to AssemblyAI. The public URL is never stored or exposed to the client.
+**Decision:** Bucket is private. The API route generates a server-side signed URL (TTL 600s) after upload and passes that signed URL to AssemblyAI. The public URL is never stored or exposed to the client. `POST /api/upload` returns `{ fileId }` only. `POST /api/transcribe` independently regenerates the signed URL server-side via `storage.getFileDownload(fileId)` — the signedUrl is never returned to the client.
 **Rationale:** A public bucket exposes all user audio files to anyone with a guessable file ID.
 **Affects:** `src/app/api/upload/route.ts`, `src/app/api/transcribe/route.ts`, `src/lib/appwrite-server.ts`
 
@@ -95,3 +95,18 @@
 **Decision:** FR-PREV-06 is implemented as `POST /api/outputs/[id]/image-prompt`. It calls Claude with a dedicated image-prompt system prompt from `lib/prompts/image-prompt.ts` and saves the result to the `imagePrompt` field on the output document. `PUT /api/outputs/[id]` is not reused for this purpose.
 **Rationale:** Reusing the inline-edit route conflates two distinct operations with different prompts, making the route logic ambiguous and harder to extend.
 **Affects:** `src/app/api/outputs/[id]/image-prompt/route.ts`, `src/lib/prompts/image-prompt.ts`, `src/components/preview/ImagePromptButton.tsx`
+
+---
+## DEC-13: Edge middleware validates session via Appwrite REST API fetch, not Node.js SDK
+
+**Gap:** `middleware.ts` runs in the Vercel edge runtime (V8 isolate). The `node-appwrite` SDK and `src/lib/appwrite-server.ts` use Node.js APIs (`node:crypto`, `node:http`) that are unavailable in the edge runtime. Importing either in `middleware.ts` causes a build crash: `"The module 'node:crypto' is not available in the Edge Runtime"`.
+**Decision:** `middleware.ts` calls the Appwrite REST endpoint directly via `fetch()`:
+```
+fetch("https://cloud.appwrite.io/v1/account", {
+  headers: { "Cookie": request.headers.get("cookie") ?? "" }
+})
+```
+If the response status is 401 or the fetch fails → redirect to `/login`. If the response is 200 → allow the request to proceed. No SDK import. No `node:` module dependency.
+**Rationale:** Zero SDK dependency, fully edge-compatible, one `fetch` call per protected request. The server-side DEC-05 check in every API route remains the primary security gate; middleware is a fast pre-render redirect guard only.
+**Affects:** `middleware.ts` only.
+**DEC reference:** extends DEC-10
