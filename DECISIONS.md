@@ -110,3 +110,7 @@ If the response status is 401 or the fetch fails → redirect to `/login`. If th
 **Rationale:** Zero SDK dependency, fully edge-compatible, one `fetch` call per protected request. The server-side DEC-05 check in every API route remains the primary security gate; middleware is a fast pre-render redirect guard only.
 **Affects:** `middleware.ts` only.
 **DEC reference:** extends DEC-10
+
+---
+
+API contracts defined in API_CONTRACT.md supersede any request/response shapes in MODULE_STRUCTURE.md if they conflict.

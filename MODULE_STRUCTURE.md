@@ -1055,6 +1055,8 @@ function buildImagePrompt(
 
 ## 5. API Route Specifications
 
+> ⚠️ See API_CONTRACT.md for authoritative request/response contracts. This section provides implementation context only.
+
 ---
 
 ### POST /api/scrape
