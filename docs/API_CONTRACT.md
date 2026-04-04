@@ -1,7 +1,7 @@
 # AI Multi-Studio — API Contract
 
 > This document is the single source of truth for all request/response shapes.
-> It supersedes any conflicting shapes in MODULE_STRUCTURE.md (see Section 5 note).
+> It supersedes any conflicting shapes in docs/MODULE_STRUCTURE.md (see Section 5 note).
 > All routes derive `userId` exclusively from the verified Appwrite session cookie — never from the request body (DEC-05).
 
 ---

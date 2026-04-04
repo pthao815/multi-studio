@@ -4,7 +4,7 @@
 
 ## 1. Module Map
 
-> Follows REQUIREMENTS.md Section 8 file tree order. Four additional files not listed in Section 8 but required by DECISIONS.md/TASKS.md are appended at the end of each layer: `middleware.ts`, `src/app/dashboard/layout.tsx`, `src/lib/utils.ts`, `src/components/preview/ImagePromptButton.tsx`.
+> Follows docs/REQUIREMENTS.md Section 8 file tree order. Four additional files not listed in Section 8 but required by docs/DECISIONS.md/docs/TASKS.md are appended at the end of each layer: `middleware.ts`, `src/app/dashboard/layout.tsx`, `src/lib/utils.ts`, `src/components/preview/ImagePromptButton.tsx`.
 
 ---
 
@@ -207,11 +207,11 @@
 **Responsibilities:**
 - Fetches project source content and user profile (brandVoice, brandKeywords) from Appwrite
 - Updates project `status` to `"processing"`, fires all three Claude calls via `Promise.all` (DEC-11)
-- Validates Instagram output is parseable JSON array of exactly 10 strings before saving; retries the Instagram Claude call once on validation failure; marks project `"failed"` if retry also fails — does not save partial outputs
+- Instagram call uses `response_format: json_object` (DEC-18) — no retry needed; validates output is parseable JSON array of exactly 10 strings as application guard only; marks project `"failed"` if length check fails — does not save partial outputs
 - Saves 3 output documents to Appwrite and updates project `status` to `"done"` or `"failed"`
 **Imports from:** `src/lib/appwrite-server.ts`, `src/lib/claude.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`
 **Used by:** `src/app/dashboard/new/page.tsx` (called after project creation)
-**DEC reference:** DEC-05, DEC-06, DEC-11
+**DEC reference:** DEC-05, DEC-06, DEC-11, DEC-14, DEC-15, DEC-16, DEC-17, DEC-18
 
 ---
 
@@ -249,7 +249,7 @@
 - Do NOT await stream before returning `Response` (breaks streaming UX); do NOT skip DB write (breaks inline edit state)
 **Imports from:** `src/lib/appwrite-server.ts`, `src/lib/claude.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`, `src/lib/prompts/linkedin.ts`, `src/lib/prompts/twitter.ts`
 **Used by:** `src/app/dashboard/projects/[id]/page.tsx` (regenerate button)
-**DEC reference:** DEC-05, DEC-09
+**DEC reference:** DEC-05, DEC-09, DEC-14, DEC-15, DEC-16, DEC-17
 
 ---
 
@@ -261,7 +261,7 @@
 - Saves the result to the `imagePrompt` field on the output document
 **Imports from:** `src/lib/appwrite-server.ts`, `src/lib/claude.ts`, `src/lib/prompts/image-prompt.ts`
 **Used by:** `src/components/preview/ImagePromptButton.tsx`
-**DEC reference:** DEC-05, DEC-12
+**DEC reference:** DEC-05, DEC-12, DEC-14, DEC-15, DEC-16, DEC-17
 
 ---
 
@@ -440,14 +440,19 @@
 
 ### src/lib/claude.ts
 **Type:** lib
-**Exports:** `generateContent`, `streamContent`
+**Exports:** `generateContent`, `streamContent`, `buildBrandVoicePrompt`, `MAX_SOURCE_CONTENT_LENGTH`, `ClaudeEmptyResponseError`, `ClaudeRefusalError`
 **Responsibilities:**
 - Server-only (`import 'server-only'`); wraps `@anthropic-ai/sdk`
 - `generateContent()` — non-streaming, returns `Promise<string>` for parallel generation
 - `streamContent()` — returns `ReadableStream<Uint8Array>` for per-channel regeneration
+- `buildBrandVoicePrompt()` — builds shared brand voice system prompt fragment from `brandVoice` and `brandKeywords`; called by all prompt files to guarantee consistent tone injection across every channel (DEC-14)
+- `MAX_SOURCE_CONTENT_LENGTH` — named constant (12,000 characters); `sourceContent` is truncated to this limit with `…[content truncated]` suffix before every Claude call (DEC-15)
+- Truncates `sourceContent` to `MAX_SOURCE_CONTENT_LENGTH` before every call; appends `…[content truncated]` suffix if truncation occurs (DEC-15)
+- After every completion, checks for empty string (throws `ClaudeEmptyResponseError`) and known refusal prefixes such as `"I'm sorry"`, `"I can't"`, `"I'm unable"` (throws `ClaudeRefusalError`) (DEC-17)
+- Instagram calls use `temperature: 0.4` and `response_format: { type: "json_object" }`; all other calls use `temperature: 0.7`, `max_tokens: 1500` (DEC-16, DEC-18)
 **Imports from:** none (project files)
 **Used by:** `src/app/api/projects/[id]/generate/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`, `src/app/api/outputs/[id]/image-prompt/route.ts`
-**DEC reference:** DEC-09, DEC-11
+**DEC reference:** DEC-09, DEC-11, DEC-14, DEC-15, DEC-16, DEC-17, DEC-18
 
 ---
 
@@ -494,10 +499,10 @@
 **Exports:** `buildFacebookPrompt`
 **Responsibilities:**
 - Builds the Facebook system + user prompt: 3–5 paragraphs, storytelling hook, emoji usage, CTA, 400–600 words
-- Injects brandVoice tone instruction and brandKeywords into the prompt
-**Imports from:** `src/types/index.ts`
+- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/claude.ts` for the brand voice fragment (DEC-14)
+**Imports from:** `src/types/index.ts`, `src/lib/claude.ts`
 **Used by:** `src/app/api/projects/[id]/generate/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`
-**DEC reference:** none
+**DEC reference:** DEC-14
 
 ---
 
@@ -506,10 +511,10 @@
 **Exports:** `buildTikTokPrompt`
 **Responsibilities:**
 - Builds the TikTok system + user prompt: 3-second hook, `[Scene X]` labels, trending sound suggestion, ~60-second script
-- Injects brandVoice tone instruction and brandKeywords
-**Imports from:** `src/types/index.ts`
+- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/claude.ts` for the brand voice fragment (DEC-14)
+**Imports from:** `src/types/index.ts`, `src/lib/claude.ts`
 **Used by:** `src/app/api/projects/[id]/generate/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`
-**DEC reference:** none
+**DEC reference:** DEC-14
 
 ---
 
@@ -517,11 +522,12 @@
 **Type:** lib
 **Exports:** `buildInstagramPrompt`
 **Responsibilities:**
-- Builds Instagram prompt instructing Claude to return a **valid JSON array of exactly 10 strings** (DEC-06)
-- Slide 1: hook, Slides 2–9: content, Slide 10: CTA; injects brandVoice and brandKeywords
-**Imports from:** `src/types/index.ts`
+- Builds Instagram prompt instructing Claude to return a **valid JSON array of exactly 10 strings** (DEC-06); used in conjunction with `response_format: json_object` (DEC-18)
+- Slide 1: hook, Slides 2–9: content, Slide 10: CTA
+- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/claude.ts` for the brand voice fragment (DEC-14)
+**Imports from:** `src/types/index.ts`, `src/lib/claude.ts`
 **Used by:** `src/app/api/projects/[id]/generate/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`
-**DEC reference:** DEC-06
+**DEC reference:** DEC-06, DEC-14, DEC-18
 
 ---
 
@@ -530,10 +536,10 @@
 **Exports:** `buildLinkedInPrompt`
 **Responsibilities:**
 - Builds LinkedIn professional article format prompt (secondary channel, basic template)
-- Injects brandVoice tone instruction and brandKeywords
-**Imports from:** `src/types/index.ts`
+- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/claude.ts` for the brand voice fragment (DEC-14)
+**Imports from:** `src/types/index.ts`, `src/lib/claude.ts`
 **Used by:** `src/app/api/outputs/[id]/regenerate/route.ts`
-**DEC reference:** none
+**DEC reference:** DEC-14
 
 ---
 
@@ -542,10 +548,10 @@
 **Exports:** `buildTwitterPrompt`
 **Responsibilities:**
 - Builds Twitter/X numbered thread format prompt (secondary channel, basic template)
-- Injects brandVoice tone instruction and brandKeywords
-**Imports from:** `src/types/index.ts`
+- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/claude.ts` for the brand voice fragment (DEC-14)
+**Imports from:** `src/types/index.ts`, `src/lib/claude.ts`
 **Used by:** `src/app/api/outputs/[id]/regenerate/route.ts`
-**DEC reference:** none
+**DEC reference:** DEC-14
 
 ---
 
@@ -554,10 +560,11 @@
 **Exports:** `buildImagePrompt`
 **Responsibilities:**
 - Builds a Claude system prompt specifically for generating visual image prompts from existing channel content
+- Returns `{ system, user }` — generation instructions in `system`, channel content in `user` (DEC-14)
 - Result is saved to `outputs.imagePrompt` field, separate from `content` (DEC-12)
 **Imports from:** `src/types/index.ts`
 **Used by:** `src/app/api/outputs/[id]/image-prompt/route.ts`
-**DEC reference:** DEC-12
+**DEC reference:** DEC-12, DEC-14
 
 ---
 
@@ -1055,7 +1062,7 @@ function buildImagePrompt(
 
 ## 5. API Route Specifications
 
-> ⚠️ See API_CONTRACT.md for authoritative request/response contracts. This section provides implementation context only.
+> ⚠️ See docs/API_CONTRACT.md for authoritative request/response contracts. This section provides implementation context only.
 
 ---
 
@@ -1337,10 +1344,10 @@ After writing the file, here is the summary:
 `SourceType`, `GenerationStatus`, `ChannelType`, `BrandVoice`, `ScheduleStatus`, `Profile`, `Project`, `Output`, `Schedule`, `TranscriptionResult`
 
 **Total API contracts specified: 9**
-All routes from REQUIREMENTS.md Section 7.
+All routes from docs/REQUIREMENTS.md Section 7.
 
 **Total error scenarios covered: 13**
-All 9 from the task spec plus 4 additional scenarios derived from DECISIONS.md and REQUIREMENTS.md.
+All 9 from the task spec plus 4 additional scenarios derived from docs/DECISIONS.md and docs/REQUIREMENTS.md.
 
-**Files in REQUIREMENTS.md Section 8 not covered: none.**
-All 43 files in the Section 8 tree are documented. Four additional files not in Section 8 were added because they are required by DECISIONS.md or TASKS.md: `middleware.ts` (DEC-10), `src/app/dashboard/layout.tsx` (DEC-04), `src/lib/utils.ts` (DEC-07), `src/components/preview/ImagePromptButton.tsx` (DEC-12).
+**Files in docs/REQUIREMENTS.md Section 8 not covered: none.**
+All 43 files in the Section 8 tree are documented. Four additional files not in Section 8 were added because they are required by docs/DECISIONS.md or docs/TASKS.md: `middleware.ts` (DEC-10), `src/app/dashboard/layout.tsx` (DEC-04), `src/lib/utils.ts` (DEC-07), `src/components/preview/ImagePromptButton.tsx` (DEC-12).

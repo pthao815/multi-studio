@@ -113,4 +113,44 @@ If the response status is 401 or the fetch fails → redirect to `/login`. If th
 
 ---
 
-API contracts defined in API_CONTRACT.md supersede any request/response shapes in MODULE_STRUCTURE.md if they conflict.
+## DEC-14: Prompt message role structure
+
+**Gap:** No document specifies which content goes in the `system` role vs the `user` role of the Claude Messages API call across any of the six prompt files.
+**Decision:** All Claude calls use a two-message structure. `system`: static channel formatting instructions + brand voice fragment (built by a shared `buildBrandVoicePrompt()` helper in `src/lib/claude.ts`). `user`: source content only, prefixed with a one-line task instruction (e.g. `"Convert the following content into a Facebook post:\n\n{{sourceContent}}"`). This structure maximises instruction adherence and keeps variable data out of the system prompt.
+**Rationale:** Claude's instruction-following reliability is significantly higher when formatting rules are in `system` and variable source content is in `user`. Without this spec, developers implementing different prompt files will mix instructions and source content arbitrarily, producing inconsistent output quality.
+**Affects:** `src/lib/claude.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`, `src/lib/prompts/linkedin.ts`, `src/lib/prompts/twitter.ts`, `src/lib/prompts/image-prompt.ts`
+
+---
+## DEC-15: Source content token length guard
+
+**Gap:** No document defines a maximum length for `sourceContent` before it is passed to Claude, nor what happens when content exceeds that limit.
+**Decision:** Before any Claude call, `sourceContent` is truncated to a maximum of **12,000 characters** (≈ 3,000 tokens, leaving ~5,000 tokens for system prompt and output). If truncation occurs, a `…[content truncated]` suffix is appended. No user-facing warning is required for MVP. This limit is defined as a named constant `MAX_SOURCE_CONTENT_LENGTH` in `src/lib/claude.ts` so it can be adjusted in one place.
+**Rationale:** A long scraped article or long audio transcript could push the user turn past 100k tokens or produce slow, expensive completions. There is no truncation guard, no token count check, and no defined fallback. The 15-second NFR-01 budget has no protection against this.
+**Affects:** `src/lib/claude.ts`, `src/app/api/projects/[id]/generate/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`
+
+---
+## DEC-16: Claude model parameters
+
+**Gap:** `claude-sonnet-4-6` is specified in docs/REQUIREMENTS.md but `temperature`, `max_tokens`, and other sampling parameters are never defined, leaving implementation to developer discretion.
+**Decision:** All calls to `generateContent()` and `streamContent()` use: `temperature: 0.7` (balances creativity with instruction adherence), `max_tokens: 1500` (sufficient for all channel specs; Facebook 600 words ≈ 800 tokens, Instagram 10 slides ≈ 1200 tokens). Instagram carousel calls specifically use `temperature: 0.4` to improve JSON format consistency. These values are defined as named constants in `src/lib/claude.ts`, not hardcoded at call sites.
+**Rationale:** A developer implementing `claude.ts` will pick arbitrary defaults (often `temperature: 1`). The Instagram channel requires consistent JSON structure, which is more reliable at lower temperature. Without guidance, all channels get the same defaults.
+**Affects:** `src/lib/claude.ts`
+
+---
+## DEC-17: Handling Claude empty responses and content-policy refusals
+
+**Gap:** `GENERATION_FAILED` and `REGENERATION_FAILED` error codes are triggered only when `generateContent()` or `streamContent()` throws. An empty string or a refusal text returned without throwing is saved to the database as valid content.
+**Decision:** After every Claude completion, `generateContent()` checks: (1) if the response is an empty string → throw `ClaudeEmptyResponseError`; (2) if the response begins with a known refusal prefix (e.g. `"I'm sorry"`, `"I can't"`, `"I'm unable"`) → throw `ClaudeRefusalError`. Both error classes are caught by the route handlers and mapped to `GENERATION_FAILED` / `REGENERATION_FAILED`. Project status is set to `"failed"` and no partial output is saved.
+**Rationale:** If Claude returns an empty string or a content-policy refusal message instead of throwing, the current flow saves the refusal text as the output content, sets project status to `"done"`, and the user sees the refusal in the preview card with no indication that generation failed.
+**Affects:** `src/lib/claude.ts`, `src/app/api/projects/[id]/generate/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`, `src/app/api/outputs/[id]/image-prompt/route.ts`
+
+---
+## DEC-18: Instagram structured output enforcement
+
+**Gap:** DEC-06 specifies that the Instagram prompt instructs Claude to return a JSON array of exactly 10 strings, but enforcement is done via prompt instruction only. The API contract (TASK-19 note) acknowledges one retry on JSON validation failure; a second failure sets project status to `"failed"` with no user recovery path.
+**Decision:** The Instagram `generateContent()` call passes `response_format: { type: "json_object" }` (Anthropic JSON mode) in addition to the prompt instruction. This eliminates malformed JSON as a failure mode, removes the need for the retry, and removes the `"failed"` status path caused by format drift alone. The JSON array length check (`slides.length === 10`) is kept as an application-level guard after `JSON.parse`.
+**Rationale:** Relying solely on prompt instruction for JSON structure causes ~5–10% format drift. With only one retry, two consecutive bad outputs set project status to `"failed"`. JSON mode eliminates this risk entirely.
+**Affects:** `src/lib/prompts/instagram.ts`, `src/lib/claude.ts`, `src/app/api/projects/[id]/generate/route.ts`
+
+---
+API contracts defined in docs/API_CONTRACT.md supersede any request/response shapes in docs/MODULE_STRUCTURE.md if they conflict.

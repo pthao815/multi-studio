@@ -1,6 +1,6 @@
 # AI Multi-Studio — Implementation Plan
 
-> This is NOT a repeat of TASKS.md. TASKS.md lists what to build.
+> This is NOT a repeat of docs/TASKS.md. docs/TASKS.md lists what to build.
 > This document defines **runnable steps** — each step ends with a specific test you can run RIGHT NOW to confirm it works before moving on.
 >
 > A step is "runnable" if it produces something visible or testable, the test can be done in under 5 minutes, and failure gives a clear error message.
@@ -42,7 +42,7 @@
 **Follows:** none
 
 **Implementation notes:**
-- Install: `node-appwrite`, `appwrite`, `@anthropic-ai/sdk`, `assemblyai`, `cheerio`, `sonner`, `recharts`, `react-recharts` — check TECH_STACK.md for exact versions
+- Install: `node-appwrite`, `appwrite`, `@anthropic-ai/sdk`, `assemblyai`, `cheerio`, `sonner`, `recharts`, `react-recharts` — check docs/TECH_STACK.md for exact versions
 - Run `npm install` and confirm zero peer-dependency errors
 - Add `"node-appwrite"` to `serverExternalPackages` in `next.config.js` to prevent edge bundling issues (needed for DEC-13)
 - Verify `package.json` has `"type": "module"` NOT set — Next.js App Router expects CommonJS interop
@@ -84,7 +84,7 @@
 **Follows:** Step 1.3
 
 **Implementation notes:**
-- Define interfaces: `Profile`, `Project`, `Output`, `Schedule` matching DATABASE_DESIGN.md schemas exactly
+- Define interfaces: `Profile`, `Project`, `Output`, `Schedule` matching docs/DATABASE_DESIGN.md schemas exactly
 - Define union types: `SourceType = "url" | "text" | "audio"`, `GenerationStatus = "pending" | "processing" | "done" | "failed"`, `ChannelType = "facebook" | "tiktok" | "instagram" | "linkedin" | "twitter"`
 - Export all from `src/types/index.ts` — every API route and component imports types from here
 - Do not use `any` — strict TypeScript is enforced by `tsconfig.json`
@@ -94,7 +94,7 @@
 > Expected: Zero TypeScript errors
 > Fail signal: Type errors referencing `src/types/index.ts` missing exports
 
-**Blocker if test fails:** Check that every field in DATABASE_DESIGN.md Section 2 schemas is represented in the interface.
+**Blocker if test fails:** Check that every field in docs/DATABASE_DESIGN.md Section 2 schemas is represented in the interface.
 
 ---
 
@@ -158,7 +158,7 @@
 - `dashboard/layout.tsx` is a **server component** — it calls `appwrite-server.ts` to get the current user, then calls `getOrCreateProfile(userId)` which does `databases.listDocuments(profilesCollectionId, [Query.equal("userId", userId)])` and creates one if missing (DEC-04)
 - `Sidebar.tsx` is a client component with a logout button that calls `account.deleteSession("current")` then `router.push("/login")`
 - `TopBar.tsx` displays the user's `displayName` from the profile
-- Brand voice defaults (`"energetic"`) must be set in `getOrCreateProfile()` per DATABASE_DESIGN.md
+- Brand voice defaults (`"energetic"`) must be set in `getOrCreateProfile()` per docs/DATABASE_DESIGN.md
 
 **Runnable test:**
 > Action: Log in → browser shows dashboard layout with Sidebar and TopBar
@@ -205,7 +205,7 @@
 
 **Implementation notes:**
 - `scrapeUrl(url: string): Promise<{ title: string; text: string }>` in `cheerio.ts` — use `$("title").text()` for title and `$("body").text()` stripped of script/style tags for text
-- Validate `url` starts with `http://` or `https://` before fetching — return `{ code: "INVALID_URL" }` per API_CONTRACT.md
+- Validate `url` starts with `http://` or `https://` before fetching — return `{ code: "INVALID_URL" }` per docs/API_CONTRACT.md
 - Session verification at route level: call Appwrite server SDK `account.get()` — if it throws → return 401 (DEC-05 pattern)
 - Return `{ code: "NO_CONTENT" }` if stripped text is empty after whitespace normalization
 
@@ -282,8 +282,8 @@
 
 **Implementation notes:**
 - Parse `multipart/form-data` using `request.formData()` — Next.js 14 App Router handles this natively; do not use `multer`
-- Validate MIME type against `["audio/mpeg", "audio/wav", "audio/x-m4a"]` → return `{ code: "UNSUPPORTED_FILE_TYPE" }` per API_CONTRACT.md
-- Validate size ≤ 25 MB → return `{ code: "FILE_TOO_LARGE" }` per API_CONTRACT.md
+- Validate MIME type against `["audio/mpeg", "audio/wav", "audio/x-m4a"]` → return `{ code: "UNSUPPORTED_FILE_TYPE" }` per docs/API_CONTRACT.md
+- Validate size ≤ 25 MB → return `{ code: "FILE_TOO_LARGE" }` per docs/API_CONTRACT.md
 - Call `storage.createFile(bucketId, ID.unique(), InputFile.fromBuffer(buffer, filename))` using the server SDK
 - Return `{ fileId }` only — never return the signed URL (DEC-01)
 
@@ -304,7 +304,7 @@
 
 **Implementation notes:**
 - `assemblyai.ts` exports `submitTranscriptionJob(signedUrl: string): Promise<string>` and `getTranscriptionStatus(transcriptId: string): Promise<{ status: string; text?: string }>`
-- `POST /api/transcribe` body is `{ fileId: string }` (per API_CONTRACT.md, not `signedUrl`) — route regenerates signed URL server-side via `storage.getFileDownload(bucketId, fileId)` then submits to AssemblyAI (DEC-01, DEC-02)
+- `POST /api/transcribe` body is `{ fileId: string }` (per docs/API_CONTRACT.md, not `signedUrl`) — route regenerates signed URL server-side via `storage.getFileDownload(bucketId, fileId)` then submits to AssemblyAI (DEC-01, DEC-02)
 - `GET /api/transcribe/[id]` calls `getTranscriptionStatus(id)` and returns the raw status + optional text
 - AssemblyAI API key is `process.env.ASSEMBLYAI_API_KEY` — never expose to client
 
@@ -353,7 +353,7 @@
 
 **Implementation notes:**
 - `claude.ts` exports exactly two functions per DEC-09: `generateContent(systemPrompt: string, userContent: string): Promise<string>` (non-streaming) and `streamContent(systemPrompt: string, userContent: string): ReadableStream` (streaming)
-- `generateContent` uses `anthropic.messages.create({ model: "claude-sonnet-4-6", max_tokens: 2048, ... })` — model ID from REQUIREMENTS.md Section 2
+- `generateContent` uses `anthropic.messages.create({ model: "claude-sonnet-4-6", max_tokens: 2048, ... })` — model ID from docs/REQUIREMENTS.md Section 2
 - `buildInstagramPrompt(brandVoice, keywords)` must instruct Claude to return **only** a valid JSON array of exactly 10 strings, with no surrounding text (DEC-06)
 - Each prompt builder accepts `(sourceContent: string, brandVoice: string, keywords: string[]): string` — brand voice and keywords injected per FR-GEN-06
 
@@ -377,7 +377,7 @@
 - Set `project.status = "processing"` before calling Claude
 - Call `Promise.all([generateContent(facebookPrompt, ...), generateContent(tiktokPrompt, ...), generateContent(instagramPrompt, ...)])` — never sequential (DEC-11)
 - After `Promise.all` resolves: call `JSON.parse(instagramContent)` — verify result is `string[]` with length exactly 10; if not, retry the Instagram call once (single call); if retry also fails → set status `"failed"`, do not save any outputs (TASK-19 note)
-- On success: create 3 output documents in Appwrite, then set `project.status = "done"` — per API_CONTRACT.md
+- On success: create 3 output documents in Appwrite, then set `project.status = "done"` — per docs/API_CONTRACT.md
 
 **Runnable test:**
 > Action: Get a project `id` with `status: "pending"` from Appwrite console; call `curl -X POST http://localhost:3000/api/projects/<id>/generate --cookie "appwrite-session=<cookie>"`
@@ -402,7 +402,7 @@
 **Follows:** Step 1.3
 
 **Implementation notes:**
-- Fetch project by ID; verify `project.userId === session.userId` → 403 on mismatch per API_CONTRACT.md
+- Fetch project by ID; verify `project.userId === session.userId` → 403 on mismatch per docs/API_CONTRACT.md
 - Return `{ status: project.status }` — the `GenerationStatus` union type defined in `src/types/index.ts`
 - Return 404 `{ code: "PROJECT_NOT_FOUND" }` if `databases.getDocument()` throws a `404` Appwrite exception
 
@@ -500,9 +500,9 @@
 **Follows:** Step 8.2
 
 **Implementation notes:**
-- Route validates session and verifies `output.userId === session.userId` → 403 per API_CONTRACT.md
+- Route validates session and verifies `output.userId === session.userId` → 403 per docs/API_CONTRACT.md
 - `databases.updateDocument(outputsCollectionId, id, { content })` → return `{ id, content, updatedAt: new Date().toISOString() }`
-- Preview page: clicking output text enters edit mode (`editingId = output.$id`, `editContent = output.content`); on textarea blur → call `PUT /api/outputs/[id]` with `{ content: editContent }` per API_CONTRACT.md; on success → update `outputs` state; on error → `toast.error(...)`
+- Preview page: clicking output text enters edit mode (`editingId = output.$id`, `editContent = output.content`); on textarea blur → call `PUT /api/outputs/[id]` with `{ content: editContent }` per docs/API_CONTRACT.md; on success → update `outputs` state; on error → `toast.error(...)`
 
 **Runnable test:**
 > Action: On preview page, click the Facebook content → edit some text → click outside the textarea
@@ -700,7 +700,7 @@
 **Implementation notes:**
 - Add all environment variables from `.env.local` to Vercel Dashboard > Settings > Environment Variables — include both `NEXT_PUBLIC_*` and server-only vars
 - Add Vercel deployment URL to Appwrite > Auth > Settings > Allowed Hostnames and OAuth redirect URLs
-- Run REQUIREMENTS.md Section 10 verification checklist on the live Vercel URL
+- Run docs/REQUIREMENTS.md Section 10 verification checklist on the live Vercel URL
 - `APPWRITE_API_KEY` is server-only — confirm it does not appear in any client bundle (check Vercel build output for warnings)
 
 **Runnable test:**
@@ -720,7 +720,7 @@
 - **First step where a real Claude API call is made:** Step 6.1 (runnable test calls `generateContent()`)
 - **First step where real Appwrite data is written:** Step 2.1 (register creates a user; Step 2.3 creates the first `profiles` document)
 
-**TASKs in TASKS.md not covered by any step in this plan:**
+**TASKs in docs/TASKS.md not covered by any step in this plan:**
 - None — all 42 tasks (TASK-01 through TASK-42) are covered. Cross-reference:
   - TASK-01: Step 1.3 (Appwrite config prerequisite)
   - TASK-02: Step 2.1

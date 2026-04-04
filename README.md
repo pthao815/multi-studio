@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Multi-Studio
+
+A multimedia content creation automation system. Users submit a raw content source (URL, plain text, or audio file), and the system uses Claude AI to generate platform-optimised social media content for Facebook, TikTok, and Instagram simultaneously.
+
+**Stack:** Next.js 14 · TypeScript · Tailwind CSS · Appwrite Cloud · Anthropic Claude API · AssemblyAI · Vercel
+
+---
+
+## Documentation
+
+All project documentation is in the [`/docs`](./docs) folder.
+
+| Document | Description |
+|---|---|
+| [REQUIREMENTS.md](./docs/REQUIREMENTS.md) | Functional and non-functional requirements, feature tiers, weekly checkpoints |
+| [DECISIONS.md](./docs/DECISIONS.md) | 18 architecture decisions (DEC-01 through DEC-18) with rationale |
+| [ARCHITECTURE.md](./docs/ARCHITECTURE.md) | System overview, sequence diagrams, component architecture, data flow |
+| [MODULE_STRUCTURE.md](./docs/MODULE_STRUCTURE.md) | Every file's exports, responsibilities, imports, and DEC references |
+| [DATABASE_DESIGN.md](./docs/DATABASE_DESIGN.md) | Appwrite collection schemas, indexes, query patterns, setup checklist |
+| [API_CONTRACT.md](./docs/API_CONTRACT.md) | Request/response shapes and error codes for every API route |
+| [AI_LAYER.md](./docs/AI_LAYER.md) | Prompt templates, brand voice contract, refusal prefix list, image prompt spec |
+| [TECH_STACK.md](./docs/TECH_STACK.md) | Technology choices, configuration notes, architectural patterns |
+| [TASKS.md](./docs/TASKS.md) | Implementation checklist organised by week |
+| [IMPLEMENTATION_PLAN.md](./docs/IMPLEMENTATION_PLAN.md) | Step-by-step runnable milestones with tests for each step |
+
+---
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
+cp .env.local.example .env.local   # fill in your keys
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+See [docs/IMPLEMENTATION_PLAN.md](./docs/IMPLEMENTATION_PLAN.md) for the full step-by-step build guide.
+See [docs/DATABASE_DESIGN.md](./docs/DATABASE_DESIGN.md) Section 8 for the Appwrite Cloud setup checklist.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+Required variables are listed in [docs/REQUIREMENTS.md](./docs/REQUIREMENTS.md) Section 9.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Variable | Used by |
+|---|---|
+| `NEXT_PUBLIC_APPWRITE_ENDPOINT` | Client SDK |
+| `NEXT_PUBLIC_APPWRITE_PROJECT_ID` | Client SDK |
+| `NEXT_PUBLIC_APPWRITE_DB_ID` | Client + Server SDK |
+| `NEXT_PUBLIC_APPWRITE_PROFILES_COLLECTION_ID` | Client + Server SDK |
+| `NEXT_PUBLIC_APPWRITE_PROJECTS_COLLECTION_ID` | Client + Server SDK |
+| `NEXT_PUBLIC_APPWRITE_OUTPUTS_COLLECTION_ID` | Client + Server SDK |
+| `NEXT_PUBLIC_APPWRITE_SCHEDULES_COLLECTION_ID` | Client + Server SDK |
+| `NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID` | Client + Server SDK |
+| `APPWRITE_API_KEY` | Server SDK only — never expose to client |
+| `ANTHROPIC_API_KEY` | Server only — never expose to client |
+| `ASSEMBLYAI_API_KEY` | Server only — never expose to client |

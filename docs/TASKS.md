@@ -117,10 +117,10 @@
 
 - [ ] TASK-19: Implement POST /api/projects/[id]/generate (Promise.all across 3 Claude calls, session auth, save outputs)
       FR/NFR: FR-GEN-01, FR-GEN-02, FR-GEN-03, FR-GEN-06, NFR-01, NFR-02
-      DEC: DEC-05, DEC-06, DEC-11
+      DEC: DEC-05, DEC-06, DEC-11, DEC-14, DEC-15, DEC-16, DEC-17, DEC-18
       Blocks: TASK-20
       File(s): `src/app/api/projects/[id]/generate/route.ts`, `src/lib/claude.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`
-      Note: After Promise.all resolves, before saving outputs: (1) call JSON.parse(instagramContent) and verify result is array of exactly 10 strings; (2) if validation fails, retry Instagram Claude call once (single call, not Promise.all); (3) if retry also fails, set project status to "failed", do not save partial outputs, surface error message to UI; (4) only set status "done" if all 3 outputs pass validation.
+      Note: Instagram call uses response_format: json_object per DEC-18 — no retry needed. Keep array.length === 10 check as application guard only. Follow DEC-14 for system/user message structure. Follow DEC-15 for source content truncation. Follow DEC-16 for temperature and max_tokens. Follow DEC-17 for empty response and refusal handling.
 
 - [ ] TASK-20: Implement GET /api/projects/[id]/status (return current project status field)
       FR/NFR: FR-GEN-03, FR-GEN-05
@@ -176,9 +176,10 @@
 
 - [ ] TASK-17: Add streamContent() function to claude.ts
       FR/NFR: FR-PREV-05, NFR-02
-      DEC: DEC-09
+      DEC: DEC-09, DEC-14, DEC-15, DEC-16, DEC-17
       Blocks: TASK-28
       File(s): `src/lib/claude.ts`
+      Note: Follow DEC-14 for system/user message structure. Follow DEC-15 for source content truncation. Follow DEC-16 for temperature and max_tokens. Follow DEC-17 for empty response and refusal handling.
 
 - [ ] TASK-28: Implement POST /api/outputs/[id]/regenerate (calls streamContent(), returns ReadableStream)
       FR/NFR: FR-PREV-05, NFR-02
