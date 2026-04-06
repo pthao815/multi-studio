@@ -2,9 +2,9 @@
 
 export type SourceType = "url" | "text" | "audio";
 
-export type ProjectStatus = "pending" | "processing" | "done" | "failed";
+export type GenerationStatus = "pending" | "processing" | "done" | "failed";
 
-export type Channel =
+export type ChannelType =
   | "facebook"
   | "tiktok"
   | "instagram"
@@ -35,7 +35,7 @@ export interface Project {
   sourceContent: string;
   audioFileId?: string;
   transcription?: string;
-  status: ProjectStatus;
+  status: GenerationStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,7 +44,7 @@ export interface Output {
   $id: string;
   projectId: string;
   userId: string;
-  channel: Channel;
+  channel: ChannelType;
   content: string;
   imagePrompt?: string;
   createdAt: string;
@@ -55,7 +55,7 @@ export interface Schedule {
   $id: string;
   outputId: string;
   userId: string;
-  platform: string;
+  platform: ChannelType;
   scheduledAt: string;
   status: ScheduleStatus;
 }

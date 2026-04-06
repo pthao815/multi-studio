@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
+    "@google/generative-ai": "^0.24.1",
     "@types/cheerio": "^0.22.35",
     "appwrite": "^23.0.0",
     "assemblyai": "^4.28.0",
