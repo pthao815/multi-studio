@@ -276,7 +276,7 @@ id: string  // Appwrite projects collection document ID
 | `UNAUTHORIZED` | 403 | Session `userId` does not match `project.userId` |
 | `GENERATION_FAILED` | 500 | `Promise.all` across 3 Claude calls throws, Instagram JSON validation fails after retry, or Appwrite output writes fail |
 
-**Note:** Route uses `Promise.all` across 3 simultaneous `generateContent()` calls (DEC-11). After all 3 resolve, Instagram output is validated as a JSON array of exactly 10 strings (TASK-19 note). If validation fails, one retry is attempted; on second failure the project status is set to `"failed"` and no outputs are saved. On success, project status is set to `"done"`.
+**Note:** Route uses `Promise.all` across 3 simultaneous `generateContent()` calls (DEC-11). Instagram output uses `responseMimeType: "application/json"` (DEC-18) — malformed JSON is not expected. After parsing, the route verifies `slides.length === 10` and `hashtags.length === 30` as application-level guards. On guard failure → `GENERATION_FAILED` immediately. **No retry is implemented** (DEC-18 eliminates the need). On success, project status is set to `"done"`. Route must declare `export const maxDuration = 60` as first line (DEC-19).
 
 **Frontend calls this from:** `src/app/dashboard/new/page.tsx`
 **Backend implements in:** `src/app/api/projects/[id]/generate/route.ts`

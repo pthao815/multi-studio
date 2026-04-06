@@ -42,7 +42,7 @@
 **Follows:** none
 
 **Implementation notes:**
-- Install: `node-appwrite`, `appwrite`, `@anthropic-ai/sdk`, `assemblyai`, `cheerio`, `sonner`, `recharts`, `react-recharts` — check docs/TECH_STACK.md for exact versions
+- Install: `node-appwrite`, `appwrite`, `@google/generative-ai`, `assemblyai`, `cheerio`, `sonner`, `recharts` — check docs/TECH_STACK.md for exact versions
 - Run `npm install` and confirm zero peer-dependency errors
 - Add `"node-appwrite"` to `serverExternalPackages` in `next.config.js` to prevent edge bundling issues (needed for DEC-13)
 - Verify `package.json` has `"type": "module"` NOT set — Next.js App Router expects CommonJS interop
@@ -63,7 +63,7 @@
 **Follows:** TASK-01 (Appwrite Cloud project must exist with collections created)
 
 **Implementation notes:**
-- Required vars: `NEXT_PUBLIC_APPWRITE_ENDPOINT`, `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, `NEXT_PUBLIC_APPWRITE_PROFILES_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_PROJECTS_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_OUTPUTS_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_SCHEDULES_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_BUCKET_ID`, `ANTHROPIC_API_KEY`, `ASSEMBLYAI_API_KEY`, `APPWRITE_API_KEY` (server-only)
+- Required vars: `NEXT_PUBLIC_APPWRITE_ENDPOINT`, `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, `NEXT_PUBLIC_APPWRITE_DB_ID`, `NEXT_PUBLIC_APPWRITE_PROFILES_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_PROJECTS_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_OUTPUTS_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_SCHEDULES_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID`, `GOOGLE_AI_API_KEY`, `ASSEMBLYAI_API_KEY`, `APPWRITE_API_KEY` (server-only) — copy the `.env.local.example` file from the project root for the full template
 - `src/lib/appwrite.ts` exports the browser-side `Client` + `Account`, `Databases`, `Storage` instances using `NEXT_PUBLIC_` vars
 - `src/lib/appwrite-server.ts` exports the server-side `Client` using `APPWRITE_API_KEY` (never prefixed `NEXT_PUBLIC_`) — this file must never be imported by any client component
 - TypeScript types for all four Appwrite collections go in `src/types/index.ts`
@@ -345,24 +345,26 @@
 
 ---
 
-### Step 6.1: Write Claude prompt builders and claude.ts
+### Step 6.1: Write AI prompt builders and ai.ts
 
-**Build:** `src/lib/claude.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`
+**Build:** `src/lib/ai.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`
 
 **Follows:** Step 1.3
 
 **Implementation notes:**
-- `claude.ts` exports exactly two functions per DEC-09: `generateContent(systemPrompt: string, userContent: string): Promise<string>` (non-streaming) and `streamContent(systemPrompt: string, userContent: string): ReadableStream` (streaming)
-- `generateContent` uses `anthropic.messages.create({ model: "claude-sonnet-4-6", max_tokens: 2048, ... })` — model ID from docs/REQUIREMENTS.md Section 2
-- `buildInstagramPrompt(brandVoice, keywords)` must instruct Claude to return **only** a valid JSON array of exactly 10 strings, with no surrounding text (DEC-06)
-- Each prompt builder accepts `(sourceContent: string, brandVoice: string, keywords: string[]): string` — brand voice and keywords injected per FR-GEN-06
+- `ai.ts` exports exactly two functions per DEC-09: `generateContent(systemPrompt: string, userContent: string, options?: { jsonMode?: boolean }): Promise<string>` (non-streaming) and `streamContent(systemPrompt: string, userContent: string): ReadableStream` (streaming)
+- `generateContent` uses `@google/generative-ai` SDK: `genAI.getGenerativeModel({ model: "gemini-2.0-flash" }).generateContent(...)` with `temperature: 0.7`, `maxOutputTokens: 1500` — see DEC-16
+- Instagram calls pass `responseMimeType: "application/json"` and `temperature: 0.4` (DEC-18)
+- `buildInstagramPrompt(brandVoice, keywords)` must instruct the model to return a JSON object `{ slides: string[10], caption: string, hashtags: string[30] }` per AI_LAYER.md instagram.ts section (supersedes DEC-06 plain-array description)
+- Each prompt builder accepts `(sourceContent: string, brandVoice: string, keywords: string[]): { system: string, user: string }` — brand voice injected per FR-GEN-06 via `buildBrandVoicePrompt()` from `src/lib/ai.ts`
+- Get free API key: `https://aistudio.google.com` → "Get API key"
 
 **Runnable test:**
-> Action: Add a temporary test script `test-claude.ts` that calls `generateContent(buildFacebookPrompt("energetic", []), "Test content about AI")` and prints the result; run with `npx ts-node --esm test-claude.ts`
+> Action: Add a temporary test script `test-ai.ts` that calls `generateContent(buildFacebookPrompt("energetic", []).system, buildFacebookPrompt("energetic", []).user + "\n\nTest content about AI")` and prints the result; run with `npx ts-node --esm test-ai.ts`
 > Expected: A 400–600 word Facebook post printed to terminal with emojis and a CTA
-> Fail signal: `AuthenticationError` (check `ANTHROPIC_API_KEY`); empty string returned; or model ID typo causing API error
+> Fail signal: `GoogleGenerativeAIError` (check `GOOGLE_AI_API_KEY`); empty string returned; quota exceeded (1500 req/day free limit)
 
-**Blocker if test fails:** Check that `ANTHROPIC_API_KEY` is set in `.env.local` AND that the test script loads `.env.local` (use `dotenv` package or run via Next.js `npm run dev` context instead).
+**Blocker if test fails:** Check that `GOOGLE_AI_API_KEY` is set in `.env.local`. Verify the key is active at `https://aistudio.google.com`. If quota exceeded, wait for daily reset (midnight Pacific time).
 
 ---
 
@@ -373,10 +375,11 @@
 **Follows:** Step 6.1
 
 **Implementation notes:**
+- **CRITICAL:** First line of this file must be `export const maxDuration = 60` — before any imports. Without this Vercel times out at 10 seconds in production (DEC-19).
 - Fetch project by ID using server SDK; verify `project.userId === session.userId` (DEC-05) — return `{ code: "UNAUTHORIZED" }` on mismatch
-- Set `project.status = "processing"` before calling Claude
+- Set `project.status = "processing"` before calling AI
 - Call `Promise.all([generateContent(facebookPrompt, ...), generateContent(tiktokPrompt, ...), generateContent(instagramPrompt, ...)])` — never sequential (DEC-11)
-- After `Promise.all` resolves: call `JSON.parse(instagramContent)` — verify result is `string[]` with length exactly 10; if not, retry the Instagram call once (single call); if retry also fails → set status `"failed"`, do not save any outputs (TASK-19 note)
+- After `Promise.all` resolves: call `JSON.parse(instagramContent)` — verify `result.slides.length === 10 && result.hashtags.length === 30`; on failure → set status `"failed"`, do not save any outputs, return `GENERATION_FAILED`. **No retry** (DEC-18 uses JSON mode — format failure means prompt error, not model flakiness)
 - On success: create 3 output documents in Appwrite, then set `project.status = "done"` — per docs/API_CONTRACT.md
 
 **Runnable test:**
@@ -520,9 +523,9 @@
 
 ---
 
-### Step 10.1: Add streamContent() to claude.ts and implement POST /api/outputs/[id]/regenerate
+### Step 10.1: Add streamContent() to ai.ts and implement POST /api/outputs/[id]/regenerate
 
-**Build:** Update `src/lib/claude.ts` (add `streamContent`), `src/app/api/outputs/[id]/regenerate/route.ts`
+**Build:** Update `src/lib/ai.ts` (add `streamContent`), `src/app/api/outputs/[id]/regenerate/route.ts`
 
 **Follows:** Step 6.1, Step 9.1
 

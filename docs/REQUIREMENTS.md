@@ -23,7 +23,7 @@ AI Multi-Studio is a multimedia content creation automation system. Users submit
 | Auth | Appwrite Cloud (Google OAuth + Email/Password) |
 | Database | Appwrite Cloud (4 collections) |
 | File Storage | Appwrite Storage |
-| AI Generation | Anthropic Claude API (`claude-sonnet-4-6`) |
+| AI Generation | Google Gemini API (`gemini-2.0-flash`) |
 | Transcription | AssemblyAI REST API |
 | URL Scraping | Cheerio (server-side) |
 | Charts | Recharts |
@@ -65,7 +65,7 @@ AI Multi-Studio is a multimedia content creation automation system. Users submit
 
 ### 4.3 Content Generation
 
-- **FR-GEN-01:** After ingestion, the user triggers generation. The system calls Claude API in parallel for all 3 primary channels.
+- **FR-GEN-01:** After ingestion, the user triggers generation. The system calls the Gemini API in parallel for all 3 primary channels.
 - **FR-GEN-02:** Each channel output is saved to the `outputs` collection in Appwrite.
 - **FR-GEN-03:** The project `status` is updated to `"processing"` during generation and `"done"` or `"failed"` after.
 - **FR-GEN-04:** A processing screen shows animated step progress while generation runs.
@@ -193,14 +193,15 @@ status:      string    // "pending" | "sent" | "cancelled"
 |---|---|---|
 | POST | `/api/scrape` | Scrape URL with Cheerio, return title + text |
 | POST | `/api/upload` | Upload audio file to Appwrite Storage, return fileId |
-<!-- Split per DEC-02: polling loop must not run inside serverless function -->
 | POST | `/api/transcribe` | Submit audio file to AssemblyAI, return transcriptId only |
 | GET  | `/api/transcribe/[id]` | Poll AssemblyAI for transcript status and result |
 | POST | `/api/projects/[id]/generate` | Trigger parallel Claude generation for all channels |
 | GET  | `/api/projects/[id]/status` | Poll project generation status (pending/processing/done/failed) |
 | PUT  | `/api/outputs/[id]` | Update output content (inline edit, saves on blur) |
 | POST | `/api/outputs/[id]/regenerate` | Re-generate one channel via Claude, returns stream |
-| POST | `/api/outputs/[id]/image-prompt` | Generate image prompt via Claude, save to imagePrompt field |
+| POST | `/api/outputs/[id]/image-prompt` | Generate image prompt via Gemini, save to imagePrompt field |
+
+> Note: `POST /api/transcribe` was split into two routes per DEC-02 — the submit route returns `transcriptId` immediately; client polls `GET /api/transcribe/[id]` every 5s. See DECISIONS.md.
 
 ---
 
@@ -254,7 +255,7 @@ src/
 ├── lib/
 │   ├── appwrite.ts                         ← Client + server SDK config
 │   ├── appwrite-server.ts                  ← Server-only SDK (API routes)
-│   ├── claude.ts                           ← Claude API service
+│   ├── ai.ts                               ← Gemini API service
 │   ├── assemblyai.ts                       ← AssemblyAI REST client
 │   ├── cheerio.ts                          ← URL scraper
 │   └── prompts/
@@ -287,7 +288,7 @@ NEXT_PUBLIC_APPWRITE_SCHEDULES_COLLECTION_ID=
 NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID=
 
 # AI Services
-ANTHROPIC_API_KEY=                         # Server-only
+GOOGLE_AI_API_KEY=                         # Server-only — get free key at aistudio.google.com
 ASSEMBLYAI_API_KEY=                        # Server-only
 ```
 

@@ -109,18 +109,18 @@
 
 ## Week 3 — Generation Engine
 
-- [ ] TASK-18: Update Instagram prompt to return valid JSON array of 10 strings
+- [ ] TASK-18: Update Instagram prompt to return JSON object `{ slides: string[10], caption: string (≤150 chars), hashtags: string[30] }` per AI_LAYER.md instagram.ts
       FR/NFR: FR-GEN-01, section 4.4 (Instagram spec)
-      DEC: DEC-06
+      DEC: DEC-06, DEC-18
       Blocks: TASK-25
       File(s): `src/lib/prompts/instagram.ts`
 
-- [ ] TASK-19: Implement POST /api/projects/[id]/generate (Promise.all across 3 Claude calls, session auth, save outputs)
+- [ ] TASK-19: Implement POST /api/projects/[id]/generate (Promise.all across 3 AI calls, session auth, save outputs)
       FR/NFR: FR-GEN-01, FR-GEN-02, FR-GEN-03, FR-GEN-06, NFR-01, NFR-02
-      DEC: DEC-05, DEC-06, DEC-11, DEC-14, DEC-15, DEC-16, DEC-17, DEC-18
+      DEC: DEC-05, DEC-06, DEC-11, DEC-14, DEC-15, DEC-16, DEC-17, DEC-18, DEC-19
       Blocks: TASK-20
-      File(s): `src/app/api/projects/[id]/generate/route.ts`, `src/lib/claude.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`
-      Note: Instagram call uses response_format: json_object per DEC-18 — no retry needed. Keep array.length === 10 check as application guard only. Follow DEC-14 for system/user message structure. Follow DEC-15 for source content truncation. Follow DEC-16 for temperature and max_tokens. Follow DEC-17 for empty response and refusal handling.
+      File(s): `src/app/api/projects/[id]/generate/route.ts`, `src/lib/ai.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`
+      Note: CRITICAL — first line of route file must be `export const maxDuration = 60` before any imports (DEC-19). Instagram call uses responseMimeType: "application/json" per DEC-18 — no retry needed. Validate slides.length === 10 AND hashtags.length === 30 as application guard. Follow DEC-14 for system/user message structure. Follow DEC-15 for source content truncation. Follow DEC-16 for temperature and maxOutputTokens. Follow DEC-17 for empty response and refusal handling (AIEmptyResponseError, AIRefusalError). Use GOOGLE_AI_API_KEY env var.
 
 - [ ] TASK-20: Implement GET /api/projects/[id]/status (return current project status field)
       FR/NFR: FR-GEN-03, FR-GEN-05
@@ -174,19 +174,19 @@
       Blocks: none
       File(s): `src/app/api/outputs/[id]/route.ts`
 
-- [ ] TASK-17: Add streamContent() function to claude.ts
+- [ ] TASK-17: Create src/lib/ai.ts with generateContent() and streamContent() using @google/generative-ai SDK
       FR/NFR: FR-PREV-05, NFR-02
-      DEC: DEC-09, DEC-14, DEC-15, DEC-16, DEC-17
+      DEC: DEC-09, DEC-14, DEC-15, DEC-16, DEC-17, DEC-19
       Blocks: TASK-28
-      File(s): `src/lib/claude.ts`
-      Note: Follow DEC-14 for system/user message structure. Follow DEC-15 for source content truncation. Follow DEC-16 for temperature and max_tokens. Follow DEC-17 for empty response and refusal handling.
+      File(s): `src/lib/ai.ts`
+      Note: Follow DEC-14 for system/user message structure. Follow DEC-15 for source content truncation. Follow DEC-16 for temperature and maxOutputTokens (Gemini params). Follow DEC-17 for empty response and refusal handling (throw AIEmptyResponseError / AIRefusalError). SDK: @google/generative-ai. API key: GOOGLE_AI_API_KEY.
 
 - [ ] TASK-28: Implement POST /api/outputs/[id]/regenerate (calls streamContent(), returns ReadableStream)
       FR/NFR: FR-PREV-05, NFR-02
-      DEC: DEC-05, DEC-09
+      DEC: DEC-05, DEC-09, DEC-19
       Blocks: none
-      File(s): `src/app/api/outputs/[id]/regenerate/route.ts`, `src/lib/claude.ts`
-      Note: Implement using TransformStream — pipe chunks to Response AND accumulate for Appwrite DB write after stream closes. Do not await stream before returning Response (breaks streaming UX). Do not skip DB write (breaks inline edit state).
+      File(s): `src/app/api/outputs/[id]/regenerate/route.ts`, `src/lib/ai.ts`
+      Note: CRITICAL — first line must be `export const maxDuration = 60` (DEC-19). Implement using TransformStream — pipe chunks to Response AND accumulate for Appwrite DB write after stream closes. Do not await stream before returning Response (breaks streaming UX). Do not skip DB write (breaks inline edit state).
 
 - [ ] TASK-29: Build image-prompt system prompt
       FR/NFR: FR-PREV-06

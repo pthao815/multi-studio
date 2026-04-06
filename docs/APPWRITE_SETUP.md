@@ -172,7 +172,7 @@ You will create 4 collections inside the `multi-studio` database. For each one: 
 | `createdAt` | DateTime | — | Yes | *(none)* | Set by server at creation |
 | `updatedAt` | DateTime | — | Yes | *(none)* | Set by server on every edit |
 
-> For `content`: set size to `65535` (Appwrite's maximum for String). Instagram outputs store a JSON array of 10 strings which can reach ~4000–6000 characters; Facebook and TikTok outputs can reach ~3000 characters. Do not use a smaller value.
+> For `content`: set size to `65535` (Appwrite's maximum for String). Instagram outputs store a JSON object `{slides, caption, hashtags}` which can reach ~5000–8000 characters; Facebook and TikTok outputs can reach ~3000 characters. Do not use a smaller value.
 
 **Set permissions:**
 
@@ -392,8 +392,8 @@ NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID=
 # From Step 6 — shown once when API key is created
 APPWRITE_API_KEY=
 
-# From Anthropic Console — https://console.anthropic.com
-ANTHROPIC_API_KEY=
+# From Google AI Studio — https://aistudio.google.com (free, no credit card)
+GOOGLE_AI_API_KEY=
 
 # From AssemblyAI Dashboard — https://www.assemblyai.com/dashboard
 ASSEMBLYAI_API_KEY=
@@ -412,10 +412,10 @@ ASSEMBLYAI_API_KEY=
 | `NEXT_PUBLIC_APPWRITE_SCHEDULES_COLLECTION_ID` | Appwrite Console → Collection Settings | Yes — safe |
 | `NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID` | Appwrite Console → Storage Settings | Yes — safe |
 | `APPWRITE_API_KEY` | Appwrite Console → API Keys | **NO — server only** |
-| `ANTHROPIC_API_KEY` | Anthropic Console | **NO — server only** |
+| `GOOGLE_AI_API_KEY` | Google AI Studio (aistudio.google.com) — free | **NO — server only** |
 | `ASSEMBLYAI_API_KEY` | AssemblyAI Dashboard | **NO — server only** |
 
-> `NEXT_PUBLIC_` variables are embedded into the JavaScript bundle at build time and are visible in the browser. This is acceptable for Appwrite project IDs and collection IDs — they are not secrets. The API keys (`APPWRITE_API_KEY`, `ANTHROPIC_API_KEY`, `ASSEMBLYAI_API_KEY`) must never have this prefix.
+> `NEXT_PUBLIC_` variables are embedded into the JavaScript bundle at build time and are visible in the browser. This is acceptable for Appwrite project IDs and collection IDs — they are not secrets. The API keys (`APPWRITE_API_KEY`, `GOOGLE_AI_API_KEY`, `ASSEMBLYAI_API_KEY`) must never have this prefix.
 
 ---
 

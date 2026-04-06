@@ -805,3 +805,77 @@ export function StatusBadge({ status }: { status: Status }) {
 | 10 | No CSS custom properties block | Section 9 — 20 CSS variables |
 
 **Confirms: all 10 MISSING items from the UI audit are resolved.**
+
+---
+
+## 11. Component Class Cheat Sheet
+
+Copy-paste ready className strings. No derivation needed — use these directly.
+
+### GlassCard (default)
+```
+backdrop-blur-xl bg-white/5 border border-white/[0.08] rounded-2xl p-6
+shadow-[0_8px_32px_rgba(0,0,0,0.4)]
+```
+
+### GlassCard (hoverable)
+```
+backdrop-blur-xl bg-white/5 border border-white/[0.08] rounded-2xl p-6
+shadow-[0_8px_32px_rgba(0,0,0,0.4)]
+hover:bg-white/[0.08] hover:border-white/[0.12]
+hover:shadow-[0_0_40px_rgba(139,92,246,0.15)]
+transition-all duration-200 cursor-pointer
+```
+
+### GradientButton (default / md)
+```
+bg-gradient-to-r from-violet-600 via-blue-600 to-cyan-500
+text-white font-semibold px-6 py-3 text-sm rounded-xl
+hover:opacity-90 hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02]
+active:scale-[0.98] transition-all duration-200
+disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none
+```
+
+### Status Badges
+```
+/* Base — always present */
+inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border
+
+/* pending */
+bg-amber-400/10 text-amber-400 border-amber-400/20
+
+/* processing  (add pulsing dot: <span class="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />) */
+bg-blue-500/10 text-blue-400 border-blue-500/20
+
+/* done */
+bg-emerald-500/10 text-emerald-400 border-emerald-500/20
+
+/* failed */
+bg-red-500/10 text-red-400 border-red-500/20
+```
+
+### Input Field
+```
+w-full bg-white/5 border border-white/[0.08] rounded-xl px-4 py-3
+text-white placeholder:text-slate-500
+focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50
+transition-all duration-150
+```
+
+### Sidebar Nav Item (inactive / active)
+```
+/* inactive */
+flex items-center gap-3 px-3 py-2.5 rounded-xl
+text-slate-400 hover:text-white hover:bg-white/[0.05]
+transition-all duration-150 text-sm font-medium
+
+/* active */
+flex items-center gap-3 px-3 py-2.5 rounded-xl
+text-white bg-white/[0.08] border border-white/[0.06] text-sm font-medium
+```
+
+### Gradient Text (brand moments only)
+```
+bg-gradient-to-r from-violet-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent
+```
+

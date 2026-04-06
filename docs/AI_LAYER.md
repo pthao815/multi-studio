@@ -11,7 +11,7 @@
 
 ## 1. AI Layer Overview
 
-The Claude API (`claude-sonnet-4-6`) serves as a **content transformation engine**.
+The Google Gemini API (`gemini-2.0-flash`) serves as a **content transformation engine**.
 Users supply one plain-text source — scraped from a URL, typed directly, or
 transcribed from audio — and the system reformats that source into platform-native
 social media posts for three channels simultaneously. Every Claude call is
@@ -129,13 +129,19 @@ Convert the following content into a TikTok video script:
 
 ### instagram.ts
 
-> **Note:** This output format expands DEC-06. Where DEC-06 specified a JSON array
-> of 10 strings, the full Instagram spec (docs/REQUIREMENTS.md Section 4.4) also requires
-> a caption ≤150 characters and 30 hashtags. The stored `outputs.content` field
-> holds the complete JSON object below. `InstagramPreview.tsx` reads all three
-> fields via `JSON.parse(output.content)`.
+> ⚠️ **This section supersedes DEC-06.** DEC-06, TASK-18 (old version), and
+> DATABASE_DESIGN.md Section 7 previously described the stored format as a plain
+> "JSON array of 10 strings." That description was incomplete. The object structure
+> below is the correct implementation. All other references have been updated to
+> match.
 
-This call is made with `response_format: { type: "json_object" }` and
+The full Instagram spec (docs/REQUIREMENTS.md Section 4.4) requires 10 slides,
+a caption ≤150 characters, and 30 hashtags. The stored `outputs.content` field
+holds the complete JSON object below. `InstagramPreview.tsx` reads all three
+fields via `JSON.parse(output.content)` and accesses `parsed.slides`,
+`parsed.caption`, `parsed.hashtags`.
+
+This call is made with `responseMimeType: "application/json"` and
 `temperature: 0.4` per DEC-16 and DEC-18.
 
 **system role:**
@@ -341,7 +347,7 @@ Generate a visual image prompt for the following social media post:
 ## 3. buildBrandVoicePrompt() Contract
 
 
-This function is exported from `src/lib/claude.ts` and called at the end of
+This function is exported from `src/lib/ai.ts` and called at the end of
 every channel prompt builder's system role construction (except `image-prompt.ts`).
 It returns a string fragment that is appended to the system role template at
 `{{BRAND_VOICE_FRAGMENT}}`.
@@ -433,7 +439,7 @@ shown above are not literal — the output is inline prose:
 
 ## 4. ClaudeRefusalError — Complete Prefix List
 
-`ClaudeRefusalError` is thrown by `generateContent()` in `src/lib/claude.ts`
+`AIRefusalError` is thrown by `generateContent()` in `src/lib/ai.ts`
 when the returned string begins with any of the prefixes below, indicating
 Claude declined to complete the request rather than generating usable content.
 
@@ -504,7 +510,7 @@ const REFUSAL_PREFIXES: string[] = [
 
 ### Implementation note
 
-The prefix list is defined as a named constant in `src/lib/claude.ts` so it can
+The prefix list is defined as a named constant in `src/lib/ai.ts` so it can
 be extended in one place. When adding a new prefix, add it in lowercase — the
 runtime comparison uses `.toLowerCase()` on both sides.
 
@@ -567,7 +573,7 @@ mood and lighting: bright warm studio light; composition: overhead flat-lay)*
 
 ## 6. Empty State Handling
 
-Defines what each prompt function and `claude.ts` must do when inputs are
+Defines what each prompt function and `ai.ts` must do when inputs are
 absent, empty, or edge-case. These are the expected runtime contract — not
 error recovery strategies (those are covered by DEC-17 for Claude's response;
 DEC-15 for content length).

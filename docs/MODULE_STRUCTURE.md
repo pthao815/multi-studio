@@ -1,5 +1,7 @@
 # AI Multi-Studio — Module Structure
 
+> ⚠️ **API contracts defined in `docs/API_CONTRACT.md` supersede any request/response shapes in this document if they conflict.**
+
 ---
 
 ## 1. Module Map
@@ -207,9 +209,10 @@
 **Responsibilities:**
 - Fetches project source content and user profile (brandVoice, brandKeywords) from Appwrite
 - Updates project `status` to `"processing"`, fires all three Claude calls via `Promise.all` (DEC-11)
-- Instagram call uses `response_format: json_object` (DEC-18) — no retry needed; validates output is parseable JSON array of exactly 10 strings as application guard only; marks project `"failed"` if length check fails — does not save partial outputs
+- Instagram call uses `responseMimeType: "application/json"` (DEC-18) — no retry needed; validates `slides.length === 10 && hashtags.length === 30` as application guard; marks project `"failed"` on guard failure — does not save partial outputs
 - Saves 3 output documents to Appwrite and updates project `status` to `"done"` or `"failed"`
-**Imports from:** `src/lib/appwrite-server.ts`, `src/lib/claude.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`
+- File must declare `export const maxDuration = 60` as first line (DEC-19)
+**Imports from:** `src/lib/appwrite-server.ts`, `src/lib/ai.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`
 **Used by:** `src/app/dashboard/new/page.tsx` (called after project creation)
 **DEC reference:** DEC-05, DEC-06, DEC-11, DEC-14, DEC-15, DEC-16, DEC-17, DEC-18
 
@@ -247,7 +250,7 @@
 - Uses `TransformStream` to simultaneously: (1) pipe Claude stream chunks to the `Response` (`Content-Type: text/event-stream`) and (2) accumulate all chunks into a full string; after the stream closes, the accumulated string is saved to Appwrite via `outputs.[id].content`
 - Pattern: `const { readable, writable } = new TransformStream()` — `streamContent()` pipes to writer; `writer.close()` triggers DB write; return `new Response(readable)`
 - Do NOT await stream before returning `Response` (breaks streaming UX); do NOT skip DB write (breaks inline edit state)
-**Imports from:** `src/lib/appwrite-server.ts`, `src/lib/claude.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`, `src/lib/prompts/linkedin.ts`, `src/lib/prompts/twitter.ts`
+**Imports from:** `src/lib/appwrite-server.ts`, `src/lib/ai.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`, `src/lib/prompts/linkedin.ts`, `src/lib/prompts/twitter.ts`
 **Used by:** `src/app/dashboard/projects/[id]/page.tsx` (regenerate button)
 **DEC reference:** DEC-05, DEC-09, DEC-14, DEC-15, DEC-16, DEC-17
 
@@ -259,7 +262,7 @@
 **Responsibilities:**
 - Fetches the output's `content`, calls `generateContent()` with the image-prompt system prompt
 - Saves the result to the `imagePrompt` field on the output document
-**Imports from:** `src/lib/appwrite-server.ts`, `src/lib/claude.ts`, `src/lib/prompts/image-prompt.ts`
+**Imports from:** `src/lib/appwrite-server.ts`, `src/lib/ai.ts`, `src/lib/prompts/image-prompt.ts`
 **Used by:** `src/components/preview/ImagePromptButton.tsx`
 **DEC reference:** DEC-05, DEC-12, DEC-14, DEC-15, DEC-16, DEC-17
 
@@ -438,18 +441,18 @@
 
 ---
 
-### src/lib/claude.ts
+### src/lib/ai.ts
 **Type:** lib
-**Exports:** `generateContent`, `streamContent`, `buildBrandVoicePrompt`, `MAX_SOURCE_CONTENT_LENGTH`, `ClaudeEmptyResponseError`, `ClaudeRefusalError`
+**Exports:** `generateContent`, `streamContent`, `buildBrandVoicePrompt`, `MAX_SOURCE_CONTENT_LENGTH`, `AIEmptyResponseError`, `AIRefusalError`
 **Responsibilities:**
-- Server-only (`import 'server-only'`); wraps `@anthropic-ai/sdk`
+- Server-only (`import 'server-only'`); wraps `@google/generative-ai` SDK (model: `gemini-2.0-flash`)
 - `generateContent()` — non-streaming, returns `Promise<string>` for parallel generation
 - `streamContent()` — returns `ReadableStream<Uint8Array>` for per-channel regeneration
 - `buildBrandVoicePrompt()` — builds shared brand voice system prompt fragment from `brandVoice` and `brandKeywords`; called by all prompt files to guarantee consistent tone injection across every channel (DEC-14)
-- `MAX_SOURCE_CONTENT_LENGTH` — named constant (12,000 characters); `sourceContent` is truncated to this limit with `…[content truncated]` suffix before every Claude call (DEC-15)
+- `MAX_SOURCE_CONTENT_LENGTH` — named constant (12,000 characters); `sourceContent` is truncated to this limit with `…[content truncated]` suffix before every AI call (DEC-15)
 - Truncates `sourceContent` to `MAX_SOURCE_CONTENT_LENGTH` before every call; appends `…[content truncated]` suffix if truncation occurs (DEC-15)
-- After every completion, checks for empty string (throws `ClaudeEmptyResponseError`) and known refusal prefixes such as `"I'm sorry"`, `"I can't"`, `"I'm unable"` (throws `ClaudeRefusalError`) (DEC-17)
-- Instagram calls use `temperature: 0.4` and `response_format: { type: "json_object" }`; all other calls use `temperature: 0.7`, `max_tokens: 1500` (DEC-16, DEC-18)
+- After every completion, checks for empty string (throws `AIEmptyResponseError`) and known refusal prefixes such as `"I'm sorry"`, `"I can't"`, `"I'm unable"` (throws `AIRefusalError`) (DEC-17)
+- Instagram calls use `temperature: 0.4` and `responseMimeType: "application/json"`; all other calls use `temperature: 0.7`, `maxOutputTokens: 1500` (DEC-16, DEC-18)
 **Imports from:** none (project files)
 **Used by:** `src/app/api/projects/[id]/generate/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`, `src/app/api/outputs/[id]/image-prompt/route.ts`
 **DEC reference:** DEC-09, DEC-11, DEC-14, DEC-15, DEC-16, DEC-17, DEC-18
@@ -499,8 +502,8 @@
 **Exports:** `buildFacebookPrompt`
 **Responsibilities:**
 - Builds the Facebook system + user prompt: 3–5 paragraphs, storytelling hook, emoji usage, CTA, 400–600 words
-- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/claude.ts` for the brand voice fragment (DEC-14)
-**Imports from:** `src/types/index.ts`, `src/lib/claude.ts`
+- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/ai.ts` for the brand voice fragment (DEC-14)
+**Imports from:** `src/types/index.ts`, `src/lib/ai.ts`
 **Used by:** `src/app/api/projects/[id]/generate/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`
 **DEC reference:** DEC-14
 
@@ -511,8 +514,8 @@
 **Exports:** `buildTikTokPrompt`
 **Responsibilities:**
 - Builds the TikTok system + user prompt: 3-second hook, `[Scene X]` labels, trending sound suggestion, ~60-second script
-- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/claude.ts` for the brand voice fragment (DEC-14)
-**Imports from:** `src/types/index.ts`, `src/lib/claude.ts`
+- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/ai.ts` for the brand voice fragment (DEC-14)
+**Imports from:** `src/types/index.ts`, `src/lib/ai.ts`
 **Used by:** `src/app/api/projects/[id]/generate/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`
 **DEC reference:** DEC-14
 
@@ -522,10 +525,10 @@
 **Type:** lib
 **Exports:** `buildInstagramPrompt`
 **Responsibilities:**
-- Builds Instagram prompt instructing Claude to return a **valid JSON array of exactly 10 strings** (DEC-06); used in conjunction with `response_format: json_object` (DEC-18)
-- Slide 1: hook, Slides 2–9: content, Slide 10: CTA
-- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/claude.ts` for the brand voice fragment (DEC-14)
-**Imports from:** `src/types/index.ts`, `src/lib/claude.ts`
+- Builds Instagram prompt instructing the model to return a **JSON object `{ slides: string[10], caption: string, hashtags: string[30] }`** (AI_LAYER.md instagram.ts, supersedes DEC-06); used in conjunction with `responseMimeType: "application/json"` (DEC-18)
+- slides[0]: hook, slides[1–8]: content, slides[9]: CTA; caption ≤150 chars; exactly 30 hashtags without `#` prefix
+- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/ai.ts` for the brand voice fragment (DEC-14)
+**Imports from:** `src/types/index.ts`, `src/lib/ai.ts`
 **Used by:** `src/app/api/projects/[id]/generate/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`
 **DEC reference:** DEC-06, DEC-14, DEC-18
 
@@ -536,8 +539,8 @@
 **Exports:** `buildLinkedInPrompt`
 **Responsibilities:**
 - Builds LinkedIn professional article format prompt (secondary channel, basic template)
-- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/claude.ts` for the brand voice fragment (DEC-14)
-**Imports from:** `src/types/index.ts`, `src/lib/claude.ts`
+- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/ai.ts` for the brand voice fragment (DEC-14)
+**Imports from:** `src/types/index.ts`, `src/lib/ai.ts`
 **Used by:** `src/app/api/outputs/[id]/regenerate/route.ts`
 **DEC reference:** DEC-14
 
@@ -548,8 +551,8 @@
 **Exports:** `buildTwitterPrompt`
 **Responsibilities:**
 - Builds Twitter/X numbered thread format prompt (secondary channel, basic template)
-- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/claude.ts` for the brand voice fragment (DEC-14)
-**Imports from:** `src/types/index.ts`, `src/lib/claude.ts`
+- Returns `{ system, user }` — channel formatting rules in `system`, source content in `user`; calls `buildBrandVoicePrompt()` from `src/lib/ai.ts` for the brand voice fragment (DEC-14)
+**Imports from:** `src/types/index.ts`, `src/lib/ai.ts`
 **Used by:** `src/app/api/outputs/[id]/regenerate/route.ts`
 **DEC reference:** DEC-14
 
@@ -655,7 +658,7 @@ flowchart LR
     subgraph Lib
         AppwriteClient["appwrite.ts"]
         AppwriteServer["appwrite-server.ts"]
-        Claude["claude.ts"]
+        AI["ai.ts"]
         AssemblyAILib["assemblyai.ts"]
         CheerioLib["cheerio.ts"]
         Utils["utils.ts"]
@@ -720,21 +723,21 @@ flowchart LR
     TranscribeGet --> AssemblyAILib
     TranscribeGet --> AppwriteServer
     Generate --> AppwriteServer
-    Generate --> Claude
+    Generate --> AI
     Generate --> FBPrompt
     Generate --> TTPrompt
     Generate --> IGPrompt
     Status --> AppwriteServer
     OutputPut --> AppwriteServer
     Regenerate --> AppwriteServer
-    Regenerate --> Claude
+    Regenerate --> AI
     Regenerate --> FBPrompt
     Regenerate --> TTPrompt
     Regenerate --> IGPrompt
     Regenerate --> LIPrompt
     Regenerate --> TWPrompt
     ImagePromptRoute --> AppwriteServer
-    ImagePromptRoute --> Claude
+    ImagePromptRoute --> AI
     ImagePromptRoute --> ImgPrompt
 
     %% Lib → Types
@@ -919,15 +922,16 @@ function generateSignedUrl(fileId: string, ttlSeconds?: number): Promise<string>
 
 ---
 
-### claude.ts
+### ai.ts
 
 ```typescript
 import 'server-only'
 
-function generateContent(prompt: string): Promise<string>
-function streamContent(prompt: string): ReadableStream<Uint8Array>
+function generateContent(systemPrompt: string, userContent: string, options?: { jsonMode?: boolean }): Promise<string>
+function streamContent(systemPrompt: string, userContent: string): ReadableStream<Uint8Array>
+function buildBrandVoicePrompt(brandVoice: BrandVoice | null | undefined, brandKeywords: string[]): string
 ```
-**Notes:** `generateContent()` is called via `Promise.all` for the initial parallel 3-channel generation (DEC-11). `streamContent()` is called exclusively by the regenerate endpoint and returns a raw `ReadableStream` to be piped as `text/event-stream` (DEC-09). Both functions use `ANTHROPIC_API_KEY` (server-only, no `NEXT_PUBLIC_` prefix).
+**Notes:** `generateContent()` is called via `Promise.all` for the initial parallel 3-channel generation (DEC-11). `streamContent()` is called exclusively by the regenerate endpoint and returns a raw `ReadableStream` to be piped as `text/event-stream` (DEC-09). Both functions use `GOOGLE_AI_API_KEY` (server-only, no `NEXT_PUBLIC_` prefix). Model: `gemini-2.0-flash` via `@google/generative-ai` SDK (DEC-16).
 
 ---
 
@@ -1135,7 +1139,7 @@ function buildImagePrompt(
   Success 200: `{ success: true }`
   Error 403: `{ error: "Unauthorized" }`
   Error 500: `{ error: "Generation failed: <message>" }`
-**Calls:** `getProject()`, `getOrCreateProfile()`, `updateProjectStatus()`, `createOutput()` (×3) from `appwrite-server.ts`; `generateContent()` from `claude.ts` via `Promise.all`; `buildFacebookPrompt()`, `buildTikTokPrompt()`, `buildInstagramPrompt()`
+**Calls:** `getProject()`, `getOrCreateProfile()`, `updateProjectStatus()`, `createOutput()` (×3) from `appwrite-server.ts`; `generateContent()` from `ai.ts` via `Promise.all`; `buildFacebookPrompt()`, `buildTikTokPrompt()`, `buildInstagramPrompt()`
 **Writes to:** `projects` (status → `"processing"` then `"done"` | `"failed"`), `outputs` (3 new documents)
 **DEC reference:** DEC-05, DEC-11
 
@@ -1182,7 +1186,7 @@ function buildImagePrompt(
   Success 200: `ReadableStream` with `Content-Type: text/event-stream` (streams generated text chunks)
   Error 403: `{ error: "Unauthorized" }`
   Error 500: `{ error: "Regeneration failed: <message>" }`
-**Calls:** `streamContent()` from `claude.ts`; channel-specific prompt builder; `updateOutput()` from `appwrite-server.ts` after stream completes
+**Calls:** `streamContent()` from `ai.ts`; channel-specific prompt builder; `updateOutput()` from `appwrite-server.ts` after stream completes
 **Writes to:** `outputs` (content field updated after stream ends)
 **DEC reference:** DEC-05, DEC-09
 
@@ -1198,7 +1202,7 @@ function buildImagePrompt(
   Success 200: `{ imagePrompt: string }`
   Error 403: `{ error: "Unauthorized" }`
   Error 500: `{ error: "Image prompt generation failed: <message>" }`
-**Calls:** `generateContent()` from `claude.ts`; `buildImagePrompt()` from `prompts/image-prompt.ts`; `updateOutputImagePrompt()` from `appwrite-server.ts`
+**Calls:** `generateContent()` from `ai.ts`; `buildImagePrompt()` from `prompts/image-prompt.ts`; `updateOutputImagePrompt()` from `appwrite-server.ts`
 **Writes to:** `outputs` (imagePrompt field)
 **DEC reference:** DEC-05, DEC-12
 
