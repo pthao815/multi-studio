@@ -6,14 +6,14 @@ const headers = {
 };
 
 /**
- * Submit a publicly accessible audio URL for transcription.
- * Returns the transcript ID.
+ * Submit a signed audio URL to AssemblyAI for transcription.
+ * Returns the transcript ID. Does NOT poll — polling is done by the client (DEC-02).
  */
-export async function submitTranscription(audioUrl: string): Promise<string> {
+export async function submitTranscriptionJob(signedUrl: string): Promise<string> {
   const res = await fetch(`${ASSEMBLYAI_BASE}/transcript`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ audio_url: audioUrl }),
+    body: JSON.stringify({ audio_url: signedUrl, speech_models: ["universal-2"] }),
   });
 
   if (!res.ok) {
@@ -25,35 +25,21 @@ export async function submitTranscription(audioUrl: string): Promise<string> {
 }
 
 /**
- * Poll AssemblyAI for transcript status.
- * Returns the transcript text when complete, or throws on error.
+ * Single status check for a transcript — called once per client poll (DEC-02).
+ * Returns status and text (only present when completed).
  */
-export async function pollTranscription(transcriptId: string): Promise<string> {
-  const maxAttempts = 60; // up to ~5 minutes
-  const delay = 5000; // 5s between polls
+export async function getTranscriptionStatus(
+  transcriptId: string
+): Promise<{ status: string; text?: string }> {
+  const res = await fetch(`${ASSEMBLYAI_BASE}/transcript/${transcriptId}`, { headers });
 
-  for (let i = 0; i < maxAttempts; i++) {
-    const res = await fetch(`${ASSEMBLYAI_BASE}/transcript/${transcriptId}`, {
-      headers,
-    });
-
-    if (!res.ok) {
-      throw new Error(`AssemblyAI poll failed: ${res.status}`);
-    }
-
-    const data = await res.json();
-
-    if (data.status === "completed") {
-      return data.text as string;
-    }
-
-    if (data.status === "error") {
-      throw new Error(`AssemblyAI transcription error: ${data.error}`);
-    }
-
-    // Still processing — wait before next poll
-    await new Promise((r) => setTimeout(r, delay));
+  if (!res.ok) {
+    throw new Error(`AssemblyAI status check failed: ${res.status}`);
   }
 
-  throw new Error("AssemblyAI transcription timed out");
+  const data = await res.json();
+  return {
+    status: data.status,
+    ...(data.status === "completed" && { text: data.text as string }),
+  };
 }
