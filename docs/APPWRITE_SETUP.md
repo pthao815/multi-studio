@@ -265,7 +265,6 @@ You will create 4 collections inside the `multi-studio` database. For each one: 
 - [ ] Scroll to **Allowed Callback URLs** (or **Platforms** — see Section 7) and confirm `http://localhost:3000` is present
 
 > The redirect URL format is exactly: `https://cloud.appwrite.io/v1/account/sessions/oauth2/callback/google/YOUR_PROJECT_ID`. Do not add a trailing slash. The Project ID must match exactly.
-
 ---
 
 ## 5. Create Storage Bucket
