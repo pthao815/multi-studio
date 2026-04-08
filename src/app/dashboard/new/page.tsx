@@ -6,46 +6,59 @@ import { toast } from "sonner";
 import { ID } from "appwrite";
 import { account, databases, DB_ID, PROJECTS_COL } from "@/lib/appwrite";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { GradientButton } from "@/components/ui/GradientButton";
 import { SourceTypeSelector, type SourceType } from "@/components/input/SourceTypeSelector";
 import { UrlInput } from "@/components/input/UrlInput";
+import { TextInput } from "@/components/input/TextInput";
+import { deriveTitle } from "@/lib/utils";
 
 export default function NewProjectPage() {
   const router = useRouter();
   const [sourceType, setSourceType] = useState<SourceType>("url");
   const [userId, setUserId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [textContent, setTextContent] = useState("");
 
   useEffect(() => {
     account.get().then((user) => setUserId(user.$id)).catch(() => router.push("/login"));
   }, [router]);
 
-  async function handleUrlSuccess({ title, text }: { title: string; text: string }) {
+  async function createProject(title: string, sourceType: "url" | "text" | "audio", sourceContent: string) {
     if (!userId) return;
     setCreating(true);
-
     try {
       const now = new Date().toISOString();
       const doc = await databases.createDocument(DB_ID, PROJECTS_COL, ID.unique(), {
         userId,
         title,
-        sourceType: "url",
-        sourceContent: text,
+        sourceType,
+        sourceContent,
         audioFileId: "",
         transcription: "",
         status: "pending",
         createdAt: now,
         updatedAt: now,
       });
-
-      // Fire generation — route built in Milestone 6
       fetch(`/api/projects/${doc.$id}/generate`, { method: "POST" }).catch(() => null);
-
       router.push(`/dashboard/projects/${doc.$id}/processing`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create project.";
       toast.error(message);
       setCreating(false);
     }
+  }
+
+  async function handleUrlSuccess({ title, text }: { title: string; text: string }) {
+    await createProject(title, "url", text);
+  }
+
+  async function handleTextSubmit() {
+    if (!textContent.trim()) {
+      toast.error("Please enter some content.");
+      return;
+    }
+    const title = deriveTitle("text", textContent);
+    await createProject(title, "text", textContent);
   }
 
   return (
@@ -73,7 +86,22 @@ export default function NewProjectPage() {
           )}
 
           {sourceType === "text" && (
-            <p className="text-slate-500 text-sm">Text input — coming in Milestone 4.</p>
+            <div className="flex flex-col gap-3">
+              <TextInput
+                value={textContent}
+                onContentChange={setTextContent}
+                disabled={creating}
+              />
+              <GradientButton
+                onClick={handleTextSubmit}
+                loading={creating}
+                disabled={creating || !textContent.trim()}
+                size="md"
+                className="w-full"
+              >
+                {creating ? "Creating…" : "Generate Content"}
+              </GradientButton>
+            </div>
           )}
 
           {sourceType === "audio" && (
