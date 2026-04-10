@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Client, Account, Storage, Tokens } from "node-appwrite";
+import { Client, Account, Tokens } from "node-appwrite";
 import { submitTranscriptionJob } from "@/lib/assemblyai";
 
 const ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!;

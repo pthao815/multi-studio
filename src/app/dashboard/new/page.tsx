@@ -10,6 +10,7 @@ import { GradientButton } from "@/components/ui/GradientButton";
 import { SourceTypeSelector, type SourceType } from "@/components/input/SourceTypeSelector";
 import { UrlInput } from "@/components/input/UrlInput";
 import { TextInput } from "@/components/input/TextInput";
+import { AudioUpload } from "@/components/input/AudioUpload";
 import { deriveTitle } from "@/lib/utils";
 
 export default function NewProjectPage() {
@@ -50,6 +51,39 @@ export default function NewProjectPage() {
 
   async function handleUrlSuccess({ title, text }: { title: string; text: string }) {
     await createProject(title, "url", text);
+  }
+
+  async function handleAudioReady({
+    transcript,
+    fileId,
+    title,
+  }: {
+    transcript: string;
+    fileId: string;
+    title: string;
+  }) {
+    if (!userId) return;
+    setCreating(true);
+    try {
+      const now = new Date().toISOString();
+      const doc = await databases.createDocument(DB_ID, PROJECTS_COL, ID.unique(), {
+        userId,
+        title,
+        sourceType: "audio",
+        sourceContent: transcript,
+        audioFileId: fileId,
+        transcription: transcript,
+        status: "pending",
+        createdAt: now,
+        updatedAt: now,
+      });
+      fetch(`/api/projects/${doc.$id}/generate`, { method: "POST" }).catch(() => null);
+      router.push(`/dashboard/projects/${doc.$id}/processing`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to create project.";
+      toast.error(message);
+      setCreating(false);
+    }
   }
 
   async function handleTextSubmit() {
@@ -105,7 +139,10 @@ export default function NewProjectPage() {
           )}
 
           {sourceType === "audio" && (
-            <p className="text-slate-500 text-sm">Audio upload — coming in Milestone 5.</p>
+            <AudioUpload
+              onTranscriptReady={handleAudioReady}
+              disabled={creating || !userId}
+            />
           )}
         </div>
       </GlassCard>
