@@ -17,7 +17,7 @@ const options: { type: SourceType; label: string; icon: React.ReactNode }[] = [
 
 export function SourceTypeSelector({ value, onChange }: SourceTypeSelectorProps) {
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="flex gap-2">
       {options.map(({ type, label, icon }) => {
         const active = value === type;
         return (

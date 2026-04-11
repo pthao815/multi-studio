@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { OAuthProvider } from "appwrite";
 import { toast } from "sonner";
 import { account } from "@/lib/appwrite";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { GradientButton } from "@/components/ui/GradientButton";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,12 +41,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-md">
-        <h1 className="text-2xl font-bold mb-6 text-gray-900">Log in</h1>
+    <div className="min-h-screen bg-base flex items-center justify-center px-4 animate-fadeInUp">
+      <GlassCard padding="lg" className="w-full max-w-md">
+        <h1 className="text-2xl font-bold text-white mb-1">Welcome back</h1>
+        <p className="text-slate-400 text-sm mb-6">Sign in to your account to continue</p>
+
         <div className="flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">
               Email
             </label>
             <input
@@ -52,12 +56,13 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20 transition-all duration-200"
               placeholder="you@example.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">
               Password
             </label>
             <input
@@ -65,29 +70,33 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20 transition-all duration-200"
               placeholder="Your password"
             />
           </div>
-          <button
+
+          <GradientButton
             type="button"
             onClick={handleSubmit}
+            loading={loading}
             disabled={loading}
-            className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            size="md"
+            className="w-full"
           >
-            {loading ? "Logging in…" : "Log in"}
-          </button>
+            {loading ? "Signing in…" : "Sign in"}
+          </GradientButton>
         </div>
 
-        <div className="my-4 flex items-center gap-2">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-xs text-gray-400">or</span>
-          <div className="flex-1 h-px bg-gray-200" />
+        <div className="my-5 flex items-center gap-3">
+          <div className="flex-1 h-px bg-white/[0.08]" />
+          <span className="text-xs text-slate-500">or</span>
+          <div className="flex-1 h-px bg-white/[0.08]" />
         </div>
 
         <button
           onClick={handleGoogleLogin}
-          className="w-full flex items-center justify-center gap-2 border border-gray-300 rounded-lg py-2 text-sm font-medium hover:bg-gray-50 transition-colors"
+          className="w-full flex items-center justify-center gap-3 bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-all duration-200"
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/>
@@ -98,13 +107,13 @@ export default function LoginPage() {
           Continue with Google
         </button>
 
-        <p className="mt-4 text-sm text-gray-600 text-center">
+        <p className="mt-5 text-sm text-slate-500 text-center">
           Don&apos;t have an account?{" "}
-          <a href="/register" className="text-blue-600 hover:underline">
+          <a href="/register" className="text-violet-400 hover:text-violet-300 transition-colors">
             Sign up
           </a>
         </p>
-      </div>
+      </GlassCard>
     </div>
   );
 }

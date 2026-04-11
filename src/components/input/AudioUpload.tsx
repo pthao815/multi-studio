@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { Mic } from "lucide-react";
 import { deriveTitle } from "@/lib/utils";
 
 type UploadState = "idle" | "uploading" | "transcribing" | "done" | "error";
@@ -23,7 +24,6 @@ export function AudioUpload({ onTranscriptReady, disabled }: AudioUploadProps) {
       setUploadState("uploading");
       setErrorMessage("");
 
-      // Step 1: Upload file
       const formData = new FormData();
       formData.append("file", file);
 
@@ -43,7 +43,6 @@ export function AudioUpload({ onTranscriptReady, disabled }: AudioUploadProps) {
         return;
       }
 
-      // Step 2: Submit transcription job
       setUploadState("transcribing");
 
       let transcriptId: string;
@@ -66,7 +65,6 @@ export function AudioUpload({ onTranscriptReady, disabled }: AudioUploadProps) {
         return;
       }
 
-      // Step 3: Poll for transcription result (max 60 attempts = 5 minutes)
       const MAX_ATTEMPTS = 60;
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         await new Promise((r) => setTimeout(r, 5000));
@@ -87,7 +85,6 @@ export function AudioUpload({ onTranscriptReady, disabled }: AudioUploadProps) {
             setUploadState("error");
             return;
           }
-          // status === "processing" — keep polling
         } catch {
           // Network hiccup — keep polling
         }
@@ -119,8 +116,8 @@ export function AudioUpload({ onTranscriptReady, disabled }: AudioUploadProps) {
 
   if (uploadState === "uploading") {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-800/50 p-10 text-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-600 border-t-violet-400" />
+      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-10 text-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-violet-400" />
         <p className="text-sm text-slate-300">Uploading audio…</p>
       </div>
     );
@@ -128,8 +125,8 @@ export function AudioUpload({ onTranscriptReady, disabled }: AudioUploadProps) {
 
   if (uploadState === "transcribing") {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-800/50 p-10 text-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-600 border-t-violet-400" />
+      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-10 text-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-violet-400" />
         <p className="text-sm text-slate-300">Transcribing… this may take a minute.</p>
         <p className="text-xs text-slate-500">Polling every 5 seconds</p>
       </div>
@@ -138,7 +135,7 @@ export function AudioUpload({ onTranscriptReady, disabled }: AudioUploadProps) {
 
   if (uploadState === "done") {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-emerald-700/50 bg-emerald-900/20 p-10 text-center">
+      <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-10 text-center">
         <p className="text-sm font-medium text-emerald-400">Transcription complete!</p>
         <p className="text-xs text-slate-400">Creating your project…</p>
       </div>
@@ -147,14 +144,14 @@ export function AudioUpload({ onTranscriptReady, disabled }: AudioUploadProps) {
 
   if (uploadState === "error") {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-red-700/50 bg-red-900/20 p-8 text-center">
+      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-red-500/40 bg-red-500/5 p-8 text-center">
         <p className="text-sm text-red-400">{errorMessage}</p>
         <button
           onClick={() => {
             setUploadState("idle");
             setErrorMessage("");
           }}
-          className="text-xs text-slate-400 underline hover:text-white"
+          className="text-xs text-slate-400 underline hover:text-white transition-colors"
         >
           Try again
         </button>
@@ -162,7 +159,7 @@ export function AudioUpload({ onTranscriptReady, disabled }: AudioUploadProps) {
     );
   }
 
-  // idle state — drag-and-drop zone
+  // idle — drag-and-drop zone
   return (
     <div
       onDragOver={(e) => {
@@ -173,26 +170,14 @@ export function AudioUpload({ onTranscriptReady, disabled }: AudioUploadProps) {
       onDrop={handleDrop}
       onClick={() => !disabled && fileInputRef.current?.click()}
       className={[
-        "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-10 text-center transition-colors",
+        "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center transition-all duration-200",
         isDragging
-          ? "border-violet-500 bg-violet-900/20"
-          : "border-slate-600 bg-slate-800/30 hover:border-slate-500",
+          ? "border-violet-500/60 bg-violet-500/5 shadow-[0_0_30px_rgba(139,92,246,0.15)]"
+          : "border-white/[0.12] bg-white/[0.02] hover:bg-white/[0.04] hover:border-violet-500/40",
         disabled ? "pointer-events-none opacity-50" : "",
       ].join(" ")}
     >
-      <svg
-        className="h-10 w-10 text-slate-500"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={1.5}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-        />
-      </svg>
+      <Mic className="h-10 w-10 text-slate-500" strokeWidth={1.5} />
       <div>
         <p className="text-sm font-medium text-slate-300">
           Drag &amp; drop an audio file or{" "}

@@ -96,56 +96,58 @@ export default function NewProjectPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+      <div className="max-w-2xl">
       <h1 className="text-3xl font-bold text-white mb-2">New Project</h1>
       <p className="text-slate-400 text-sm mb-8">
         Choose a source and generate social media content in seconds.
       </p>
 
-      <GlassCard className="p-6 flex flex-col gap-6">
-        <div>
-          <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
-            Source type
-          </label>
-          <SourceTypeSelector value={sourceType} onChange={setSourceType} />
-        </div>
+        <GlassCard padding="none" className="flex flex-col gap-6 p-6">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
+              Source type
+            </label>
+            <SourceTypeSelector value={sourceType} onChange={setSourceType} />
+          </div>
 
-        <div>
-          <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
-            {sourceType === "url" ? "Page URL" : sourceType === "text" ? "Paste content" : "Upload audio"}
-          </label>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
+              {sourceType === "url" ? "Page URL" : sourceType === "text" ? "Paste content" : "Upload audio"}
+            </label>
 
-          {sourceType === "url" && (
-            <UrlInput onSuccess={handleUrlSuccess} disabled={creating || !userId} />
-          )}
+            {sourceType === "url" && (
+              <UrlInput onSuccess={handleUrlSuccess} disabled={creating || !userId} />
+            )}
 
-          {sourceType === "text" && (
-            <div className="flex flex-col gap-3">
-              <TextInput
-                value={textContent}
-                onContentChange={setTextContent}
-                disabled={creating}
+            {sourceType === "text" && (
+              <div className="flex flex-col gap-3">
+                <TextInput
+                  value={textContent}
+                  onContentChange={setTextContent}
+                  disabled={creating}
+                />
+                <GradientButton
+                  onClick={handleTextSubmit}
+                  loading={creating}
+                  disabled={creating || !textContent.trim()}
+                  size="md"
+                  className="w-full"
+                >
+                  {creating ? "Creating…" : "Generate Content"}
+                </GradientButton>
+              </div>
+            )}
+
+            {sourceType === "audio" && (
+              <AudioUpload
+                onTranscriptReady={handleAudioReady}
+                disabled={creating || !userId}
               />
-              <GradientButton
-                onClick={handleTextSubmit}
-                loading={creating}
-                disabled={creating || !textContent.trim()}
-                size="md"
-                className="w-full"
-              >
-                {creating ? "Creating…" : "Generate Content"}
-              </GradientButton>
-            </div>
-          )}
-
-          {sourceType === "audio" && (
-            <AudioUpload
-              onTranscriptReady={handleAudioReady}
-              disabled={creating || !userId}
-            />
-          )}
-        </div>
-      </GlassCard>
+            )}
+          </div>
+        </GlassCard>
+      </div>
     </div>
   );
 }
