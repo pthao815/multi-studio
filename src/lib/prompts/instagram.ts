@@ -1,45 +1,43 @@
+import { buildBrandVoicePrompt } from "@/lib/ai";
+import type { BrandVoice } from "@/types";
+
 export function buildInstagramPrompt(
-  brandVoice: string,
+  brandVoice: BrandVoice | string,
   brandKeywords: string[]
-): string {
-  const keywords = brandKeywords.length > 0 ? brandKeywords.join(", ") : "none";
+): { system: string; user: string } {
+  const brandVoiceFragment = buildBrandVoicePrompt(
+    brandVoice as BrandVoice,
+    brandKeywords
+  );
 
-  return `You are an Instagram content strategist specializing in carousel posts for content creators.
+  const system = `You are a social media content writer specialising in Instagram carousel posts.
 
-Brand Voice: ${brandVoice}
-Brand Keywords: ${keywords}
-Target Audience: Content creators — YouTubers, podcasters, bloggers
+Return your response as valid JSON matching this exact structure — no other text, no markdown code fences, just the JSON object:
+{
+  "slides": [exactly 10 strings],
+  "caption": "string of ≤150 characters",
+  "hashtags": [exactly 30 strings]
+}
 
-Write a 10-slide Instagram carousel based on the content the user provides. Follow these rules exactly:
+Rules for slides (the array must contain exactly 10 strings):
+- slides[0]: Hook slide — a short, attention-grabbing headline of 8 words or fewer that makes the viewer swipe right; no full stop at the end
+- slides[1] through slides[8]: Content slides — one focused key point per slide; 1–3 sentences each; conversational and punchy; use a line break (\\n) to separate a bold lead-in word from the body if it aids readability
+- slides[9]: CTA slide — a direct call to action (examples: "Save this post", "Follow for more", "Share with someone who needs this", "Drop a 🔥 if this helped") written in second person
 
-FORMAT:
-Slide 1 — HOOK: Bold headline (max 8 words) + 1 supporting sentence. Must create curiosity.
-Slides 2–9 — CONTENT: Each slide has a short bold header + 2–4 bullet points or sentences. One clear idea per slide.
-Slide 10 — CTA: "Save this post" or "Follow for more" + a direct ask (question or prompt).
+Rules for caption:
+- Strictly ≤150 characters including spaces and punctuation (count before returning)
+- Complements slides[0] without repeating it word for word
+- May include 1–2 emojis
+- No hashtags in the caption field (hashtags go in the hashtags array only)
 
-After the slides, add:
-CAPTION: A short caption ≤150 characters that teases the carousel and includes 1 emoji.
-HASHTAGS: Exactly 30 relevant hashtags (mix of niche, medium, and broad).
+Rules for hashtags (the array must contain exactly 30 strings):
+- Each string is the hashtag text without the # symbol
+- All lowercase, no spaces, no special characters other than letters and digits
+- Distribute across three tiers: 10 broad/popular tags (over 1M posts), 10 niche-specific tags (100K–1M posts), 10 content-specific tags (under 100K posts or highly targeted to the subject matter)
 
-TONE:
-- Match the specified brand voice: ${brandVoice}
-- Clean, bold, scannable — people read these quickly
-- Each slide should standalone but flow as a series
+${brandVoiceFragment}`;
 
-OUTPUT FORMAT (use this exact structure):
---- Slide 1 ---
-[content]
+  const user = `Convert the following content into an Instagram carousel post:`;
 
---- Slide 2 ---
-[content]
-
-... (continue for all 10 slides)
-
---- Caption ---
-[caption text]
-
---- Hashtags ---
-[30 hashtags]
-
-No extra commentary or explanations.`;
+  return { system, user };
 }

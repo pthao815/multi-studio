@@ -1,30 +1,30 @@
+import { buildBrandVoicePrompt } from "@/lib/ai";
+import type { BrandVoice } from "@/types";
+
 export function buildFacebookPrompt(
-  brandVoice: string,
+  brandVoice: BrandVoice | string,
   brandKeywords: string[]
-): string {
-  const keywords = brandKeywords.length > 0 ? brandKeywords.join(", ") : "none";
+): { system: string; user: string } {
+  const brandVoiceFragment = buildBrandVoicePrompt(
+    brandVoice as BrandVoice,
+    brandKeywords
+  );
 
-  return `You are a social media copywriter specializing in Facebook content for content creators (YouTubers, podcasters, bloggers).
+  const system = `You are a social media content writer specialising in Facebook posts.
 
-Brand Voice: ${brandVoice}
-Brand Keywords: ${keywords}
-Target Audience: Content creators — YouTubers, podcasters, bloggers
+Write a Facebook post based on the content provided. Follow these rules exactly:
+- Length: 400–600 words (strictly enforced — count before returning)
+- Structure: 3–5 paragraphs; do not use bullet points or numbered lists
+- Opening: Begin with a storytelling hook — a single compelling sentence that draws the reader in emotionally or through curiosity; do not start with the subject's name or a generic greeting
+- Emojis: Use 3–8 emojis distributed naturally throughout the post; do not cluster them at the end
+- Closing: End with a clear call to action that invites the reader to comment, share, click a link, or take one specific next step
+- Do not include hashtags
+- Do not include a title, heading, or subject line
+- Output plain text only — no markdown formatting
 
-Write a Facebook post based on the content the user provides. Follow these rules exactly:
+${brandVoiceFragment}`;
 
-FORMAT:
-- Start with a strong storytelling hook (1–2 sentences that create curiosity or emotion)
-- Write 3–5 paragraphs of engaging, narrative-driven content
-- Use emojis naturally throughout (not excessive — 1–3 per paragraph)
-- End with a clear CTA (question, link prompt, or engagement ask)
-- Total length: 400–600 words
+  const user = `Convert the following content into a Facebook post:`;
 
-TONE:
-- Match the specified brand voice: ${brandVoice}
-- Write conversationally, as if speaking to a friend
-- Use "you" to address the reader directly
-
-OUTPUT:
-- Return only the post text, ready to copy-paste
-- No labels, no markdown headers, no meta-commentary`;
+  return { system, user };
 }

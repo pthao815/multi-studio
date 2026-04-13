@@ -4,44 +4,44 @@
 
 ## Week 1 — Auth & Scaffold
 
-- [ ] TASK-01: Configure Appwrite Cloud project (collections, permissions, OAuth provider, storage bucket)
+- [x] TASK-01: Configure Appwrite Cloud project (collections, permissions, OAuth provider, storage bucket)
       FR/NFR: NFR-02, NFR-03, FR-AUTH-02
       DEC: DEC-01, DEC-05
       Blocks: TASK-02, TASK-03, TASK-09
       File(s): none (cloud configuration — sets env values for `.env.local`)
 
-- [ ] TASK-02: Build email/password register page
+- [x] TASK-02: Build email/password register page
       FR/NFR: FR-AUTH-01
       DEC: none
       Blocks: none
       File(s): `src/app/(auth)/register/page.tsx`
 
-- [ ] TASK-03: Build login page with email and Google OAuth
+- [x] TASK-03: Build login page with email and Google OAuth
       FR/NFR: FR-AUTH-01, FR-AUTH-02
       DEC: none
       Blocks: TASK-04
       File(s): `src/app/(auth)/login/page.tsx`
 
-- [ ] TASK-04: Implement edge middleware for dashboard route protection
+- [x] TASK-04: Implement edge middleware for dashboard route protection
       FR/NFR: FR-AUTH-03
       DEC: DEC-10, DEC-13
       Blocks: TASK-07
       File(s): `middleware.ts`
       Note: Use fetch() to call Appwrite REST /v1/account endpoint directly — do not import appwrite-server.ts or node-appwrite. See DEC-13.
 
-- [ ] TASK-05: Build Sidebar component with logout button
+- [x] TASK-05: Build Sidebar component with logout button
       FR/NFR: FR-AUTH-05
       DEC: none
       Blocks: TASK-07
       File(s): `src/components/layout/Sidebar.tsx`
 
-- [ ] TASK-06: Build TopBar component
+- [x] TASK-06: Build TopBar component
       FR/NFR: NFR-05
       DEC: none
       Blocks: TASK-07
       File(s): `src/components/layout/TopBar.tsx`
 
-- [ ] TASK-07: Build dashboard root layout with profile auto-creation
+- [x] TASK-07: Build dashboard root layout with profile auto-creation
       FR/NFR: FR-AUTH-04, FR-AUTH-03
       DEC: DEC-04
       Blocks: TASK-16, TASK-21, TASK-26, TASK-32, TASK-33, TASK-37
@@ -51,55 +51,55 @@
 
 ## Week 2 — Input Pipeline
 
-- [ ] TASK-08: Implement POST /api/scrape (Cheerio URL scraper, return title + text)
+- [x] TASK-08: Implement POST /api/scrape (Cheerio URL scraper, return title + text)
       FR/NFR: FR-INPUT-02, NFR-02
       DEC: DEC-07
       Blocks: TASK-13
       File(s): `src/app/api/scrape/route.ts`, `src/lib/cheerio.ts`
 
-- [ ] TASK-09: Implement POST /api/upload (private Appwrite Storage, return fileId + signed URL)
+- [x] TASK-09: Implement POST /api/upload (private Appwrite Storage, return fileId + signed URL)
       FR/NFR: FR-INPUT-04, NFR-02, NFR-07
       DEC: DEC-01
       Blocks: TASK-10
       File(s): `src/app/api/upload/route.ts`, `src/lib/appwrite-server.ts`
 
-- [ ] TASK-10: Implement POST /api/transcribe (submit job to AssemblyAI, return transcriptId only)
+- [x] TASK-10: Implement POST /api/transcribe (submit job to AssemblyAI, return transcriptId only)
       FR/NFR: FR-INPUT-04, NFR-02
       DEC: DEC-02
       Blocks: TASK-11
       File(s): `src/app/api/transcribe/route.ts`, `src/lib/assemblyai.ts`
 
-- [ ] TASK-11: Implement GET /api/transcribe/[id] (poll AssemblyAI for status and result)
+- [x] TASK-11: Implement GET /api/transcribe/[id] (poll AssemblyAI for status and result)
       FR/NFR: FR-INPUT-06, NFR-02
       DEC: DEC-02
       Blocks: TASK-15
       File(s): `src/app/api/transcribe/[id]/route.ts`, `src/lib/assemblyai.ts`
 
-- [ ] TASK-12: Build SourceTypeSelector component (URL / Text / Audio tab switcher)
+- [x] TASK-12: Build SourceTypeSelector component (URL / Text / Audio tab switcher)
       FR/NFR: FR-INPUT-01
       DEC: none
       Blocks: TASK-16
       File(s): `src/components/input/SourceTypeSelector.tsx`
 
-- [ ] TASK-13: Build UrlInput component (calls /api/scrape, handles errors)
+- [x] TASK-13: Build UrlInput component (calls /api/scrape, handles errors)
       FR/NFR: FR-INPUT-02, FR-INPUT-07
       DEC: DEC-07
       Blocks: TASK-16
       File(s): `src/components/input/UrlInput.tsx`
 
-- [ ] TASK-14: Build TextInput component (textarea with live character count)
+- [x] TASK-14: Build TextInput component (textarea with live character count)
       FR/NFR: FR-INPUT-03, FR-INPUT-07
       DEC: DEC-07
       Blocks: TASK-16
       File(s): `src/components/input/TextInput.tsx`
 
-- [ ] TASK-15: Build AudioUpload component (drag-and-drop, calls /api/upload then polls /api/transcribe/[id])
+- [x] TASK-15: Build AudioUpload component (drag-and-drop, calls /api/upload then polls /api/transcribe/[id])
       FR/NFR: FR-INPUT-04, FR-INPUT-06, FR-INPUT-07, NFR-07
       DEC: DEC-01, DEC-02, DEC-07
       Blocks: TASK-16
       File(s): `src/components/input/AudioUpload.tsx`
 
-- [ ] TASK-16: Build new project page (assembles input components, creates project in Appwrite, navigates to processing)
+- [x] TASK-16: Build new project page (assembles input components, creates project in Appwrite, navigates to processing)
       FR/NFR: FR-INPUT-01, FR-INPUT-05, FR-INPUT-07
       DEC: DEC-07
       Blocks: TASK-19
@@ -109,7 +109,7 @@
 
 ## Week 3 — Generation Engine
 
-- [ ] TASK-18: Update Instagram prompt to return JSON object `{ slides: string[10], caption: string (≤150 chars), hashtags: string[30] }` per AI_LAYER.md instagram.ts
+- [x] TASK-18: Update Instagram prompt to return JSON object `{ slides: string[10], caption: string (≤150 chars), hashtags: string[30] }` per AI_LAYER.md instagram.ts
       FR/NFR: FR-GEN-01, section 4.4 (Instagram spec)
       DEC: DEC-06, DEC-18
       Blocks: TASK-25
@@ -216,31 +216,31 @@
       Blocks: none
       File(s): `src/app/dashboard/settings/page.tsx`
 
-- [ ] TASK-33: Build dashboard home page (project grid with status badges, quick stats cards)
+- [x] TASK-33: Build dashboard home page (project grid with status badges, quick stats cards)
       FR/NFR: FR-DASH-01, FR-DASH-02
       DEC: none
       Blocks: TASK-34, TASK-35, TASK-39
       File(s): `src/app/dashboard/page.tsx`
 
-- [ ] TASK-34: Add source-type filter and title search to dashboard
+- [x] TASK-34: Add source-type filter and title search to dashboard
       FR/NFR: FR-DASH-03
       DEC: none
       Blocks: none
       File(s): `src/app/dashboard/page.tsx`
 
-- [ ] TASK-35: Implement cascade project delete (schedules → outputs → project, confirmation dialog)
+- [x] TASK-35: Implement cascade project delete (schedules → outputs → project, confirmation dialog)
       FR/NFR: FR-DASH-04
       DEC: DEC-08
       Blocks: none
       File(s): `src/app/dashboard/page.tsx`
 
-- [ ] TASK-39: Build analytics stats cards (total projects, outputs by platform, projects this week)
+- [x] TASK-39: Build analytics stats cards (total projects, outputs by platform, projects this week)
       FR/NFR: FR-ANAL-01
       DEC: none
       Blocks: TASK-40
       File(s): `src/app/dashboard/page.tsx`
 
-- [ ] TASK-40: Build Recharts bar chart (projects created per day, last 7 days)
+- [x] TASK-40: Build Recharts bar chart (projects created per day, last 7 days)
       FR/NFR: FR-ANAL-02
       DEC: none
       Blocks: none

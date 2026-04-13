@@ -1,32 +1,30 @@
+import { buildBrandVoicePrompt } from "@/lib/ai";
+import type { BrandVoice } from "@/types";
+
 export function buildTikTokPrompt(
-  brandVoice: string,
+  brandVoice: BrandVoice | string,
   brandKeywords: string[]
-): string {
-  const keywords = brandKeywords.length > 0 ? brandKeywords.join(", ") : "none";
+): { system: string; user: string } {
+  const brandVoiceFragment = buildBrandVoicePrompt(
+    brandVoice as BrandVoice,
+    brandKeywords
+  );
 
-  return `You are a TikTok scriptwriter specializing in short-form video content for content creators.
+  const system = `You are a TikTok script writer specialising in short-form video content.
 
-Brand Voice: ${brandVoice}
-Brand Keywords: ${keywords}
-Target Audience: Content creators — YouTubers, podcasters, bloggers
+Write a TikTok video script based on the content provided. Follow these rules exactly:
+- Hook: The very first line of the script must be a 3-second hook — one single punchy sentence (10 words or fewer) that stops scrolling; do not add a label to this line
+- Scenes: Structure the body of the script using scene labels on their own line, formatted exactly as: [Scene 1], [Scene 2], [Scene 3], etc.
+- Scene length: Each scene is 1–3 sentences of spoken dialogue or narration
+- Total length: The full script (excluding the sound suggestion) must be speakable in approximately 60 seconds — target 130–160 words
+- Sound: End with a standalone line formatted exactly as: "Trending sound suggestion: [sound name or genre that fits the content mood]"
+- Do not include hashtags anywhere in the script
+- Do not add any labels, headings, or metadata other than the [Scene X] markers and the sound suggestion line
+- Output plain text only
 
-Write a TikTok video script based on the content the user provides. Follow these rules exactly:
+${brandVoiceFragment}`;
 
-FORMAT:
-- Line 1: HOOK — a single sentence designed to stop the scroll within 3 seconds (use a bold claim, surprising fact, or direct question)
-- Body: Use [Scene X] labels to break the script into short visual segments (4–8 scenes)
-- Each scene: 1–3 short sentences. Write for spoken delivery — short punchy sentences.
-- End with a CTA scene: ask viewers to follow, comment, or check the link in bio
-- Include one line at the bottom: "🎵 Trending sound suggestion: [suggest a genre or mood, e.g. 'upbeat pop', 'lo-fi chill', 'dramatic build']"
-- Total spoken length: approximately 60 seconds (~150 words)
+  const user = `Convert the following content into a TikTok video script:`;
 
-TONE:
-- Match the specified brand voice: ${brandVoice}
-- High energy, fast-paced, direct
-- Use "you" — talk to the viewer
-
-OUTPUT:
-- Return only the script, ready to read aloud
-- Keep the [Scene X] labels — creators use these for filming reference
-- No meta-commentary or explanations`;
+  return { system, user };
 }
