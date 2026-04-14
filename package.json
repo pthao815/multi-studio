@@ -17,6 +17,7 @@
     "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
+    "groq-sdk": "^1.1.2",
     "lucide-react": "^1.6.0",
     "next": "14.2.35",
     "node-appwrite": "^22.1.3",

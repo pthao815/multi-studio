@@ -931,7 +931,7 @@ function generateContent(systemPrompt: string, userContent: string, options?: { 
 function streamContent(systemPrompt: string, userContent: string): ReadableStream<Uint8Array>
 function buildBrandVoicePrompt(brandVoice: BrandVoice | null | undefined, brandKeywords: string[]): string
 ```
-**Notes:** `generateContent()` is called via `Promise.all` for the initial parallel 3-channel generation (DEC-11). `streamContent()` is called exclusively by the regenerate endpoint and returns a raw `ReadableStream` to be piped as `text/event-stream` (DEC-09). Both functions use `GOOGLE_AI_API_KEY` (server-only, no `NEXT_PUBLIC_` prefix). Model: `gemini-2.0-flash` via `@google/generative-ai` SDK (DEC-16).
+**Notes:** `generateContent()` is called via `Promise.all` for the initial parallel 3-channel generation (DEC-11). `streamContent()` is called exclusively by the regenerate endpoint and returns a raw `ReadableStream` to be piped as `text/event-stream` (DEC-09). Both functions use `GROQ_API_KEY` (server-only, no `NEXT_PUBLIC_` prefix). Model: `llama-3.3-70b-versatile` via `groq-sdk` (DEC-16).
 
 ---
 

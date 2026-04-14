@@ -63,7 +63,7 @@
 **Follows:** TASK-01 (Appwrite Cloud project must exist with collections created)
 
 **Implementation notes:**
-- Required vars: `NEXT_PUBLIC_APPWRITE_ENDPOINT`, `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, `NEXT_PUBLIC_APPWRITE_DB_ID`, `NEXT_PUBLIC_APPWRITE_PROFILES_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_PROJECTS_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_OUTPUTS_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_SCHEDULES_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID`, `GOOGLE_AI_API_KEY`, `ASSEMBLYAI_API_KEY`, `APPWRITE_API_KEY` (server-only) — copy the `.env.local.example` file from the project root for the full template
+- Required vars: `NEXT_PUBLIC_APPWRITE_ENDPOINT`, `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, `NEXT_PUBLIC_APPWRITE_DB_ID`, `NEXT_PUBLIC_APPWRITE_PROFILES_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_PROJECTS_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_OUTPUTS_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_SCHEDULES_COLLECTION_ID`, `NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID`, `GROQ_API_KEY`, `ASSEMBLYAI_API_KEY`, `APPWRITE_API_KEY` (server-only) — copy the `.env.local.example` file from the project root for the full template
 - `src/lib/appwrite.ts` exports the browser-side `Client` + `Account`, `Databases`, `Storage` instances using `NEXT_PUBLIC_` vars
 - `src/lib/appwrite-server.ts` exports the server-side `Client` using `APPWRITE_API_KEY` (never prefixed `NEXT_PUBLIC_`) — this file must never be imported by any client component
 - TypeScript types for all four Appwrite collections go in `src/types/index.ts`
@@ -360,11 +360,11 @@
 - Get free API key: `https://aistudio.google.com` → "Get API key"
 
 **Runnable test:**
-> Action: Add a temporary test script `test-ai.ts` that calls `generateContent(buildFacebookPrompt("energetic", []).system, buildFacebookPrompt("energetic", []).user + "\n\nTest content about AI")` and prints the result; run with `npx ts-node --esm test-ai.ts`
+> Action: Add a temporary test script `test-ai.ts` that calls `generateContent(buildFacebookPrompt("energetic", []).system, buildFacebookPrompt("energetic", []).user + "\n\nTest content about AI")` and prints the result; run with `npx tsx test-ai.ts`
 > Expected: A 400–600 word Facebook post printed to terminal with emojis and a CTA
-> Fail signal: `GoogleGenerativeAIError` (check `GOOGLE_AI_API_KEY`); empty string returned; quota exceeded (1500 req/day free limit)
+> Fail signal: `GroqError` (check `GROQ_API_KEY`); empty string returned; quota exceeded (14,400 req/day free limit)
 
-**Blocker if test fails:** Check that `GOOGLE_AI_API_KEY` is set in `.env.local`. Verify the key is active at `https://aistudio.google.com`. If quota exceeded, wait for daily reset (midnight Pacific time).
+**Blocker if test fails:** Check that `GROQ_API_KEY` is set in `.env.local`. Verify the key is active at `https://console.groq.com`. If quota exceeded, wait for daily reset.
 
 ---
 

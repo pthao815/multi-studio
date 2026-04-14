@@ -121,15 +121,15 @@
 ---
 ## Google Gemini API (gemini-2.0-flash)
 **Role:** Generates all platform-specific social media content (Facebook, TikTok, Instagram, LinkedIn, Twitter) and image prompts from the user's source text.
-**Version:** Model: `gemini-2.0-flash`; SDK: `@google/generative-ai` (latest)
-**Why chosen over alternatives:** Only capable AI model with a **permanent free tier** — 1,500 requests/day, 1M tokens/minute, no credit card required. Satisfies Constraint 1 (zero budget). Output quality is equivalent to claude-sonnet for structured content generation tasks. Anthropic Claude API has no permanent free tier and was replaced for this reason (DEC-16).
-**Get API key:** Go to `https://aistudio.google.com` → Sign in with Google → "Get API key" → Create API key. Free. No billing required.
+**Version:** Model: `llama-3.3-70b-versatile`; SDK: `groq-sdk` (latest)
+**Why chosen over alternatives:** Only capable AI model with a **permanent free tier** — 14,400 requests/day, no credit card required. Satisfies Constraint 1 (zero budget). Output quality is equivalent to claude-sonnet for structured content generation tasks. Anthropic Claude API has no permanent free tier; Google Gemini free tier quota was unavailable in the deployment region (DEC-16).
+**Get API key:** Go to `https://console.groq.com` → Sign up → API Keys → Create API key. Free. No billing required.
 **Configuration needed:**
-- `GOOGLE_AI_API_KEY` must be server-only (no `NEXT_PUBLIC_` prefix); never imported in client components.
+- `GROQ_API_KEY` must be server-only (no `NEXT_PUBLIC_` prefix); never imported in client components.
 - `src/lib/ai.ts` exports two functions: `generateContent()` (non-streaming, `Promise<string>`) for initial parallel generation, and `streamContent()` (returns `ReadableStream`) for per-channel regeneration (DEC-09).
 - `POST /api/projects/[id]/generate` calls `generateContent()` via `Promise.all([facebook, tiktok, instagram])` — sequential calls are forbidden as they violate NFR-01 (DEC-11).
 - Brand voice tone and keywords from the user's `profiles` document must be injected into every prompt call (FR-GEN-06, FR-SET-04).
-- Instagram calls use `responseMimeType: "application/json"` and `temperature: 0.4`; all other calls use `temperature: 0.7`, `maxOutputTokens: 1500` (DEC-16, DEC-18).
+- Instagram calls use `response_format: { type: "json_object" }` and `temperature: 0.4`; all other calls use `temperature: 0.7`, `max_tokens: 1500` (DEC-16, DEC-18).
 - Routes that call this service must declare `export const maxDuration = 60` as first line (DEC-19).
 **Connects to:** Next.js API Routes (server-side only), Appwrite Database (outputs saved after generation), channel prompt files in `src/lib/prompts/`
 **Decision reference:** DEC-06, DEC-09, DEC-11, DEC-12, DEC-16, DEC-18, DEC-19
@@ -186,7 +186,7 @@
 **Version:** Vercel platform (managed); deploy via `vercel` CLI or GitHub integration
 **Why chosen over alternatives:** First-party Next.js hosting with zero configuration; automatic preview deployments per PR; edge middleware support required for DEC-10.
 **Configuration needed:**
-- All server-only environment variables (`APPWRITE_API_KEY`, `GOOGLE_AI_API_KEY`, `ASSEMBLYAI_API_KEY`) must be added to Vercel project settings, not committed to the repo.
+- All server-only environment variables (`APPWRITE_API_KEY`, `GROQ_API_KEY`, `ASSEMBLYAI_API_KEY`) must be added to Vercel project settings, not committed to the repo.
 - `NEXT_PUBLIC_*` variables must also be set in Vercel for client-side Appwrite SDK initialisation.
 - Default serverless function timeout is 10 seconds — this is why the AssemblyAI polling loop must live on the client, not in the API route (DEC-02).
 - For `POST /api/projects/[id]/generate` and `POST /api/outputs/[id]/regenerate`: add `export const maxDuration = 60` as the **first line** of each route file, before any imports. Without this, Vercel applies the 10-second default and every slow AI response silently causes a 504 in production. Hobby plan supports up to 60 seconds (DEC-19).
@@ -225,11 +225,11 @@
 
 ---
 ## Server-only API Routes (NFR-02)
-**Role:** Ensures all Anthropic, AssemblyAI, and Appwrite server-SDK calls execute exclusively in Next.js API routes, so no secret key is ever included in the client-side bundle.
+**Role:** Ensures all Groq, AssemblyAI, and Appwrite server-SDK calls execute exclusively in Next.js API routes, so no secret key is ever included in the client-side bundle.
 **Version:** n/a (architectural rule)
-**Why chosen over alternatives:** Client-side calls to Claude or AssemblyAI would expose API keys in the browser network tab; NFR-02 mandates server-side execution.
+**Why chosen over alternatives:** Client-side calls to Groq or AssemblyAI would expose API keys in the browser network tab; NFR-02 mandates server-side execution.
 **Configuration needed:**
-- `GOOGLE_AI_API_KEY`, `ASSEMBLYAI_API_KEY`, and `APPWRITE_API_KEY` must have no `NEXT_PUBLIC_` prefix.
+- `GROQ_API_KEY`, `ASSEMBLYAI_API_KEY`, and `APPWRITE_API_KEY` must have no `NEXT_PUBLIC_` prefix.
 - `src/lib/ai.ts`, `src/lib/assemblyai.ts`, and `src/lib/appwrite-server.ts` must never be imported in any file that is or could become a client component.
 - Consider adding `import 'server-only'` at the top of these three lib files to get a build-time error if accidentally imported client-side.
 **Connects to:** All server-only lib files (`ai.ts`, `assemblyai.ts`, `appwrite-server.ts`), all API route handlers

@@ -115,12 +115,12 @@
       Blocks: TASK-25
       File(s): `src/lib/prompts/instagram.ts`
 
-- [ ] TASK-19: Implement POST /api/projects/[id]/generate (Promise.all across 3 AI calls, session auth, save outputs)
+- [x] TASK-19: Implement POST /api/projects/[id]/generate (Promise.all across 3 AI calls, session auth, save outputs)
       FR/NFR: FR-GEN-01, FR-GEN-02, FR-GEN-03, FR-GEN-06, NFR-01, NFR-02
       DEC: DEC-05, DEC-06, DEC-11, DEC-14, DEC-15, DEC-16, DEC-17, DEC-18, DEC-19
       Blocks: TASK-20
       File(s): `src/app/api/projects/[id]/generate/route.ts`, `src/lib/ai.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`
-      Note: CRITICAL — first line of route file must be `export const maxDuration = 60` before any imports (DEC-19). Instagram call uses responseMimeType: "application/json" per DEC-18 — no retry needed. Validate slides.length === 10 AND hashtags.length === 30 as application guard. Follow DEC-14 for system/user message structure. Follow DEC-15 for source content truncation. Follow DEC-16 for temperature and maxOutputTokens. Follow DEC-17 for empty response and refusal handling (AIEmptyResponseError, AIRefusalError). Use GOOGLE_AI_API_KEY env var.
+      Note: CRITICAL — first line of route file must be `export const maxDuration = 60` before any imports (DEC-19). Instagram call uses response_format: { type: "json_object" } per DEC-18 — no retry needed. Validate slides.length === 10 AND hashtags.length === 30 as application guard. Follow DEC-14 for system/user message structure. Follow DEC-15 for source content truncation. Follow DEC-16 for temperature and max_tokens. Follow DEC-17 for empty response and refusal handling (AIEmptyResponseError, AIRefusalError). Use GROQ_API_KEY env var.
 
 - [ ] TASK-20: Implement GET /api/projects/[id]/status (return current project status field)
       FR/NFR: FR-GEN-03, FR-GEN-05
@@ -174,12 +174,12 @@
       Blocks: none
       File(s): `src/app/api/outputs/[id]/route.ts`
 
-- [ ] TASK-17: Create src/lib/ai.ts with generateContent() and streamContent() using @google/generative-ai SDK
+- [x] TASK-17: Create src/lib/ai.ts with generateContent() and streamContent() using @google/generative-ai SDK
       FR/NFR: FR-PREV-05, NFR-02
       DEC: DEC-09, DEC-14, DEC-15, DEC-16, DEC-17, DEC-19
       Blocks: TASK-28
       File(s): `src/lib/ai.ts`
-      Note: Follow DEC-14 for system/user message structure. Follow DEC-15 for source content truncation. Follow DEC-16 for temperature and maxOutputTokens (Gemini params). Follow DEC-17 for empty response and refusal handling (throw AIEmptyResponseError / AIRefusalError). SDK: @google/generative-ai. API key: GOOGLE_AI_API_KEY.
+      Note: Follow DEC-14 for system/user message structure. Follow DEC-15 for source content truncation. Follow DEC-16 for temperature and max_tokens (Groq params). Follow DEC-17 for empty response and refusal handling (throw AIEmptyResponseError / AIRefusalError). SDK: groq-sdk. API key: GROQ_API_KEY.
 
 - [ ] TASK-28: Implement POST /api/outputs/[id]/regenerate (calls streamContent(), returns ReadableStream)
       FR/NFR: FR-PREV-05, NFR-02

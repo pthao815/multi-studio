@@ -288,7 +288,7 @@ NEXT_PUBLIC_APPWRITE_SCHEDULES_COLLECTION_ID=
 NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID=
 
 # AI Services
-GOOGLE_AI_API_KEY=                         # Server-only — get free key at aistudio.google.com
+GROQ_API_KEY=                              # Server-only — get free key at console.groq.com
 ASSEMBLYAI_API_KEY=                        # Server-only
 ```
 

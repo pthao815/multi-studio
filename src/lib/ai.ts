@@ -1,7 +1,9 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import type { BrandVoice } from "@/types";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+const MODEL = "llama-3.3-70b-versatile";
 
 export const MAX_SOURCE_CONTENT_LENGTH = 12000;
 
@@ -101,20 +103,18 @@ export async function generateContent(
     throw new TypeError("sourceContent must not be empty");
   }
 
-  const generationConfig = {
+  const completion = await groq.chat.completions.create({
+    model: MODEL,
     temperature: options?.jsonMode ? INSTAGRAM_TEMPERATURE : DEFAULT_TEMPERATURE,
-    maxOutputTokens: MAX_OUTPUT_TOKENS,
-    ...(options?.jsonMode && { responseMimeType: "application/json" }),
-  };
-
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
-    systemInstruction: systemPrompt,
-    generationConfig,
+    max_tokens: MAX_OUTPUT_TOKENS,
+    ...(options?.jsonMode && { response_format: { type: "json_object" } }),
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent },
+    ],
   });
 
-  const result = await model.generateContent(userContent);
-  const text = result.response.text();
+  const text = completion.choices[0]?.message?.content ?? "";
 
   if (!text || text.trim() === "") {
     throw new AIEmptyResponseError();
@@ -138,21 +138,22 @@ export function streamContent(
     throw new TypeError("sourceContent must not be empty");
   }
 
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
-    systemInstruction: systemPrompt,
-    generationConfig: {
-      temperature: DEFAULT_TEMPERATURE,
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
-    },
-  });
-
   return new ReadableStream({
     async start(controller) {
       try {
-        const result = await model.generateContentStream(userContent);
-        for await (const chunk of result.stream) {
-          const chunkText = chunk.text();
+        const stream = await groq.chat.completions.create({
+          model: MODEL,
+          temperature: DEFAULT_TEMPERATURE,
+          max_tokens: MAX_OUTPUT_TOKENS,
+          stream: true,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userContent },
+          ],
+        });
+
+        for await (const chunk of stream) {
+          const chunkText = chunk.choices[0]?.delta?.content ?? "";
           if (chunkText) {
             controller.enqueue(new TextEncoder().encode(chunkText));
           }
