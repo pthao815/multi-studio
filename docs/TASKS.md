@@ -122,13 +122,13 @@
       File(s): `src/app/api/projects/[id]/generate/route.ts`, `src/lib/ai.ts`, `src/lib/prompts/facebook.ts`, `src/lib/prompts/tiktok.ts`, `src/lib/prompts/instagram.ts`
       Note: CRITICAL — first line of route file must be `export const maxDuration = 60` before any imports (DEC-19). Instagram call uses response_format: { type: "json_object" } per DEC-18 — no retry needed. Validate slides.length === 10 AND hashtags.length === 30 as application guard. Follow DEC-14 for system/user message structure. Follow DEC-15 for source content truncation. Follow DEC-16 for temperature and max_tokens. Follow DEC-17 for empty response and refusal handling (AIEmptyResponseError, AIRefusalError). Use GROQ_API_KEY env var.
 
-- [ ] TASK-20: Implement GET /api/projects/[id]/status (return current project status field)
+- [x] TASK-20: Implement GET /api/projects/[id]/status (return current project status field)
       FR/NFR: FR-GEN-03, FR-GEN-05
       DEC: DEC-03, DEC-05
       Blocks: TASK-21
       File(s): `src/app/api/projects/[id]/status/route.ts`
 
-- [ ] TASK-21: Build processing page (animated steps, polls /api/projects/[id]/status every 3s, redirects on done, errors after 20 attempts)
+- [x] TASK-21: Build processing page (animated steps, polls /api/projects/[id]/status every 3s, redirects on done, errors after 20 attempts)
       FR/NFR: FR-GEN-04, FR-GEN-05
       DEC: DEC-03
       Blocks: TASK-26
@@ -138,31 +138,31 @@
 
 ## Week 4 — Preview & Edit
 
-- [ ] TASK-22: Build ChannelTabs component (Facebook / TikTok / Instagram tab switcher)
+- [x] TASK-22: Build ChannelTabs component (Facebook / TikTok / Instagram tab switcher)
       FR/NFR: FR-PREV-01
       DEC: none
       Blocks: TASK-26
       File(s): `src/components/preview/ChannelTabs.tsx`
 
-- [ ] TASK-23: Build FacebookPreview component (post card, character/word count badge)
+- [x] TASK-23: Build FacebookPreview component (post card, character/word count badge)
       FR/NFR: FR-PREV-02, FR-PREV-03
       DEC: none
       Blocks: TASK-26
       File(s): `src/components/preview/FacebookPreview.tsx`
 
-- [ ] TASK-24: Build TikTokPreview component (script format with scene labels, count badge)
+- [x] TASK-24: Build TikTokPreview component (script format with scene labels, count badge)
       FR/NFR: FR-PREV-02, FR-PREV-03
       DEC: none
       Blocks: TASK-26
       File(s): `src/components/preview/TikTokPreview.tsx`
 
-- [ ] TASK-25: Build InstagramPreview component (10-slide carousel mockup via JSON.parse, count badge)
+- [x] TASK-25: Build InstagramPreview component (10-slide carousel mockup via JSON.parse, count badge)
       FR/NFR: FR-PREV-02, FR-PREV-03
       DEC: DEC-06
       Blocks: TASK-26
       File(s): `src/components/preview/InstagramPreview.tsx`
 
-- [ ] TASK-26: Build preview page (fetches project + outputs, renders ChannelTabs, inline edit, export buttons)
+- [x] TASK-26: Build preview page (fetches project + outputs, renders ChannelTabs, inline edit, export buttons)
       FR/NFR: FR-PREV-01, FR-PREV-02, FR-PREV-03
       DEC: none
       Blocks: TASK-36
