@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Query } from "appwrite";
+import { toast } from "sonner";
 import { databases, DB_ID, PROJECTS_COL, OUTPUTS_COL } from "@/lib/appwrite";
 import { ChannelTabs } from "@/components/preview/ChannelTabs";
 import { FacebookPreview } from "@/components/preview/FacebookPreview";
@@ -19,6 +20,11 @@ export default function PreviewPage() {
   const [activeChannel, setActiveChannel] = useState<ChannelType>("facebook");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -41,6 +47,48 @@ export default function PreviewPage() {
 
     load();
   }, [id]);
+
+  // When active channel changes, sync edit state to that output
+  useEffect(() => {
+    const output = outputs.find((o) => o.channel === activeChannel);
+    if (output) {
+      setEditingId(output.$id);
+      setEditContent(output.content);
+    }
+  }, [activeChannel, outputs]);
+
+  async function handleBlur() {
+    if (!editingId) return;
+
+    const original = outputs.find((o) => o.$id === editingId);
+    if (!original || original.content === editContent) return; // no change
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/outputs/${editingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editContent }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error ?? "Failed to save.");
+        setEditContent(original.content); // revert
+        return;
+      }
+
+      // Update outputs state with saved content
+      setOutputs((prev) =>
+        prev.map((o) => (o.$id === editingId ? { ...o, content: editContent } : o))
+      );
+    } catch {
+      toast.error("Failed to save changes.");
+      if (original) setEditContent(original.content); // revert
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const activeOutput = outputs.find((o) => o.channel === activeChannel);
 
@@ -78,29 +126,35 @@ export default function PreviewPage() {
       {/* Channel tabs */}
       <ChannelTabs activeChannel={activeChannel} onChannelChange={setActiveChannel} />
 
-      {/* Preview */}
+      {/* Preview + edit */}
       <div className="pt-2">
         {activeOutput ? (
           <>
             {activeChannel === "facebook" && (
-              <FacebookPreview content={activeOutput.content} />
+              <FacebookPreview content={editContent || activeOutput.content} />
             )}
             {activeChannel === "tiktok" && (
-              <TikTokPreview content={activeOutput.content} />
+              <TikTokPreview content={editContent || activeOutput.content} />
             )}
             {activeChannel === "instagram" && (
-              <InstagramPreview content={activeOutput.content} />
+              <InstagramPreview content={editContent || activeOutput.content} />
             )}
 
-            {/* Inline edit placeholder — wired up in Milestone 9 */}
+            {/* Inline edit textarea — auto-saves on blur */}
             <div className="mt-6 space-y-2">
-              <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                Edit content
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Edit content
+                </label>
+                {saving && (
+                  <span className="text-xs text-slate-500">Saving…</span>
+                )}
+              </div>
               <textarea
                 className="w-full h-40 rounded-lg border border-slate-700 bg-slate-800/50 text-sm text-slate-200 p-3 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                defaultValue={activeOutput.content}
-                readOnly
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                onBlur={handleBlur}
               />
             </div>
 

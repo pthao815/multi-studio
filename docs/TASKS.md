@@ -168,7 +168,7 @@
       Blocks: TASK-36
       File(s): `src/app/dashboard/projects/[id]/page.tsx`
 
-- [ ] TASK-27: Implement PUT /api/outputs/[id] (inline edit save, session auth)
+- [x] TASK-27: Implement PUT /api/outputs/[id] (inline edit save, session auth)
       FR/NFR: FR-PREV-04, NFR-02
       DEC: DEC-05
       Blocks: none
