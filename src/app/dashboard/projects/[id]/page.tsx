@@ -26,6 +26,10 @@ export default function PreviewPage() {
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Regenerate state
+  const [regenerating, setRegenerating] = useState<ChannelType | null>(null);
+  const [streamedContent, setStreamedContent] = useState("");
+
   useEffect(() => {
     async function load() {
       try {
@@ -48,14 +52,15 @@ export default function PreviewPage() {
     load();
   }, [id]);
 
-  // When active channel changes, sync edit state to that output
+  // When active channel changes, sync edit state to that output (skip during streaming)
   useEffect(() => {
+    if (regenerating) return;
     const output = outputs.find((o) => o.channel === activeChannel);
     if (output) {
       setEditingId(output.$id);
       setEditContent(output.content);
     }
-  }, [activeChannel, outputs]);
+  }, [activeChannel, outputs, regenerating]);
 
   async function handleBlur() {
     if (!editingId) return;
@@ -87,6 +92,49 @@ export default function PreviewPage() {
       if (original) setEditContent(original.content); // revert
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleRegenerate() {
+    if (!activeOutput || regenerating) return;
+
+    setRegenerating(activeChannel);
+    setStreamedContent("");
+
+    try {
+      const res = await fetch(`/api/outputs/${activeOutput.$id}/regenerate`, {
+        method: "POST",
+      });
+
+      if (!res.ok || !res.body) {
+        toast.error("Regeneration failed.");
+        setRegenerating(null);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        accumulated += chunk;
+        setStreamedContent(accumulated);
+      }
+
+      setOutputs((prev) =>
+        prev.map((o) =>
+          o.$id === activeOutput.$id ? { ...o, content: accumulated } : o
+        )
+      );
+      setEditContent(accumulated);
+    } catch {
+      toast.error("Regeneration failed.");
+    } finally {
+      setRegenerating(null);
+      setStreamedContent("");
     }
   }
 
@@ -151,19 +199,21 @@ export default function PreviewPage() {
                 )}
               </div>
               <textarea
-                className="w-full h-40 rounded-lg border border-slate-700 bg-slate-800/50 text-sm text-slate-200 p-3 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                value={editContent}
+                className="w-full h-40 rounded-lg border border-slate-700 bg-slate-800/50 text-sm text-slate-200 p-3 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+                value={regenerating === activeChannel ? streamedContent : editContent}
                 onChange={(e) => setEditContent(e.target.value)}
                 onBlur={handleBlur}
+                disabled={!!regenerating}
+                readOnly={!!regenerating}
               />
             </div>
 
-            {/* Regenerate placeholder — wired up in Milestone 10 */}
             <button
-              disabled
-              className="mt-3 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600/40 text-indigo-300 cursor-not-allowed opacity-50"
+              onClick={handleRegenerate}
+              disabled={!!regenerating}
+              className="mt-3 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Regenerate
+              {regenerating === activeChannel ? "Regenerating…" : "Regenerate"}
             </button>
           </>
         ) : (
