@@ -181,7 +181,7 @@
       File(s): `src/lib/ai.ts`
       Note: Follow DEC-14 for system/user message structure. Follow DEC-15 for source content truncation. Follow DEC-16 for temperature and max_tokens (Groq params). Follow DEC-17 for empty response and refusal handling (throw AIEmptyResponseError / AIRefusalError). SDK: groq-sdk. API key: GROQ_API_KEY.
 
-- [ ] TASK-28: Implement POST /api/outputs/[id]/regenerate (calls streamContent(), returns ReadableStream)
+- [x] TASK-28: Implement POST /api/outputs/[id]/regenerate (calls streamContent(), returns ReadableStream)
       FR/NFR: FR-PREV-05, NFR-02
       DEC: DEC-05, DEC-09, DEC-19
       Blocks: none
