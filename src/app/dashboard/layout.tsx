@@ -49,8 +49,7 @@ async function getOrCreateProfile(userId: string) {
     userId,
     displayName: "",
     avatarUrl: "",
-    brandVoice: "energetic",
-    brandKeywords: [],
+    brandVoice: ["energetic"],
     createdAt: new Date().toISOString(),
   });
 }

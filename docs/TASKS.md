@@ -188,7 +188,7 @@
       File(s): `src/app/api/outputs/[id]/regenerate/route.ts`, `src/lib/ai.ts`
       Note: CRITICAL — first line must be `export const maxDuration = 60` (DEC-19). Implement using TransformStream — pipe chunks to Response AND accumulate for Appwrite DB write after stream closes. Do not await stream before returning Response (breaks streaming UX). Do not skip DB write (breaks inline edit state).
 
-- [ ] TASK-29: Build image-prompt system prompt
+- [x] TASK-29: Build image-prompt system prompt
       FR/NFR: FR-PREV-06
       DEC: DEC-12
       Blocks: TASK-30
@@ -210,7 +210,7 @@
 
 ## Week 5 — Brand Voice & Settings
 
-- [ ] TASK-32: Build settings page (display name, avatar upload, brand voice selector, keyword tag input)
+- [x] TASK-32: Build settings page (display name, avatar upload, brand voice selector, keyword tag input)
       FR/NFR: FR-SET-01, FR-SET-02, FR-SET-03, FR-SET-04
       DEC: none
       Blocks: none

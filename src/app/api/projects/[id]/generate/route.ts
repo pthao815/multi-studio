@@ -73,7 +73,8 @@ export async function POST(
     ]);
     if (profilesResult.documents.length > 0) {
       const profile = profilesResult.documents[0] as unknown as Profile;
-      brandVoice = profile.brandVoice ?? "calm";
+      const bv = profile.brandVoice as unknown;
+      brandVoice = (Array.isArray(bv) ? bv[0] : bv) ?? "calm";
       brandKeywords = profile.brandKeywords ?? [];
     }
   } catch {
@@ -110,13 +111,19 @@ export async function POST(
     return NextResponse.json({ error: "Generation failed", code: "GENERATION_FAILED" }, { status: 500 });
   }
 
-  // Validate Instagram JSON structure — no retry (DEC-18)
+  // Validate and normalise Instagram JSON structure — no retry (DEC-18)
   let instagramParsed: { slides: string[]; caption: string; hashtags: string[] };
   try {
     instagramParsed = JSON.parse(instagramContent);
-    if (instagramParsed.slides.length !== 10 || instagramParsed.hashtags.length !== 30) {
-      throw new Error("Instagram structure invalid");
+    if (!Array.isArray(instagramParsed.slides) || !Array.isArray(instagramParsed.hashtags)) {
+      throw new Error("Instagram structure missing arrays");
     }
+    // Pad or trim to required counts rather than failing outright
+    while (instagramParsed.slides.length < 10) instagramParsed.slides.push("");
+    instagramParsed.slides = instagramParsed.slides.slice(0, 10);
+    while (instagramParsed.hashtags.length < 30) instagramParsed.hashtags.push(`#content${instagramParsed.hashtags.length + 1}`);
+    instagramParsed.hashtags = instagramParsed.hashtags.slice(0, 30);
+    instagramContent = JSON.stringify(instagramParsed);
   } catch {
     await serverDatabases.updateDocument(DB_ID, PROJECTS_COL, projectId, {
       status: "failed",

@@ -90,7 +90,8 @@ export async function POST(
     ]);
     if (profilesResult.documents.length > 0) {
       const profile = profilesResult.documents[0] as unknown as Profile;
-      brandVoice = profile.brandVoice ?? "calm";
+      const bv = profile.brandVoice as unknown;
+      brandVoice = (Array.isArray(bv) ? bv[0] : bv) ?? "calm";
       brandKeywords = profile.brandKeywords ?? [];
     }
   } catch {
