@@ -194,13 +194,13 @@
       Blocks: TASK-30
       File(s): `src/lib/prompts/image-prompt.ts`
 
-- [ ] TASK-30: Implement POST /api/outputs/[id]/image-prompt (calls Claude, saves to imagePrompt field)
+- [x] TASK-30: Implement POST /api/outputs/[id]/image-prompt (calls Claude, saves to imagePrompt field)
       FR/NFR: FR-PREV-06, NFR-02
       DEC: DEC-05, DEC-12
       Blocks: TASK-31
       File(s): `src/app/api/outputs/[id]/image-prompt/route.ts`
 
-- [ ] TASK-31: Build ImagePromptButton component (triggers /api/outputs/[id]/image-prompt, displays result)
+- [x] TASK-31: Build ImagePromptButton component (triggers /api/outputs/[id]/image-prompt, displays result)
       FR/NFR: FR-PREV-06
       DEC: DEC-12
       Blocks: none
@@ -250,19 +250,19 @@
 
 ## Week 6 — Export, Scheduler & Analytics
 
-- [ ] TASK-36: Implement export features on preview page (clipboard copy, .txt download per channel, .json download all)
+- [x] TASK-36: Implement export features on preview page (clipboard copy, .txt download per channel, .json download all)
       FR/NFR: FR-EXP-01, FR-EXP-02, FR-EXP-03
       DEC: none
       Blocks: none
       File(s): `src/app/dashboard/projects/[id]/page.tsx`
 
-- [ ] TASK-37: Build scheduler page (list all scheduled posts with status badges)
+- [x] TASK-37: Build scheduler page (list all scheduled posts with status badges)
       FR/NFR: FR-SCHED-03, FR-SCHED-04
       DEC: none
       Blocks: TASK-38
       File(s): `src/app/dashboard/scheduler/page.tsx`
 
-- [ ] TASK-38: Implement schedule creation (date/time picker on preview page, saves to schedules collection)
+- [x] TASK-38: Implement schedule creation (date/time picker on preview page, saves to schedules collection)
       FR/NFR: FR-SCHED-01, FR-SCHED-02, FR-SCHED-04
       DEC: none
       Blocks: none

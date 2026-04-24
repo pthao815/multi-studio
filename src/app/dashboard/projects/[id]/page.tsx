@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Query } from "appwrite";
+import { ID, Query } from "appwrite";
 import { toast } from "sonner";
-import { databases, DB_ID, PROJECTS_COL, OUTPUTS_COL } from "@/lib/appwrite";
+import { account, databases, DB_ID, PROJECTS_COL, OUTPUTS_COL, SCHEDULES_COL } from "@/lib/appwrite";
 import { ChannelTabs } from "@/components/preview/ChannelTabs";
 import { FacebookPreview } from "@/components/preview/FacebookPreview";
 import { TikTokPreview } from "@/components/preview/TikTokPreview";
 import { InstagramPreview } from "@/components/preview/InstagramPreview";
+import { ImagePromptButton } from "@/components/preview/ImagePromptButton";
 import type { Project, Output, ChannelType } from "@/types";
 
 export default function PreviewPage() {
@@ -20,6 +21,11 @@ export default function PreviewPage() {
   const [activeChannel, setActiveChannel] = useState<ChannelType>("facebook");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState("");
+
+  // Schedule state
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduling, setScheduling] = useState(false);
 
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -33,13 +39,15 @@ export default function PreviewPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [projectDoc, outputsResult] = await Promise.all([
+        const [user, projectDoc, outputsResult] = await Promise.all([
+          account.get(),
           databases.getDocument(DB_ID, PROJECTS_COL, id),
           databases.listDocuments(DB_ID, OUTPUTS_COL, [
             Query.equal("projectId", id),
           ]),
         ]);
 
+        setUserId(user.$id);
         setProject(projectDoc as unknown as Project);
         setOutputs(outputsResult.documents as unknown as Output[]);
       } catch {
@@ -140,6 +148,71 @@ export default function PreviewPage() {
 
   const activeOutput = outputs.find((o) => o.channel === activeChannel);
 
+  function handleCopy() {
+    if (!activeOutput) return;
+    navigator.clipboard.writeText(activeOutput.content)
+      .then(() => toast.success("Copied!"))
+      .catch(() => toast.error("Failed to copy."));
+  }
+
+  function handleDownloadTxt() {
+    if (!activeOutput) return;
+    const blob = new Blob([activeOutput.content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${activeChannel}-content.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleSchedule() {
+    if (!activeOutput || !scheduleDate || !userId) return;
+    setScheduling(true);
+    try {
+      await databases.createDocument(DB_ID, SCHEDULES_COL, ID.unique(), {
+        outputId: activeOutput.$id,
+        userId,
+        platform: activeChannel,
+        scheduledAt: new Date(scheduleDate).toISOString(),
+        status: "scheduled",
+      });
+      toast.success("Scheduled!");
+      setScheduleDate("");
+    } catch {
+      toast.error("Failed to schedule.");
+    } finally {
+      setScheduling(false);
+    }
+  }
+
+  function handleDownloadJson() {
+    const fb = outputs.find((o) => o.channel === "facebook");
+    const tk = outputs.find((o) => o.channel === "tiktok");
+    const ig = outputs.find((o) => o.channel === "instagram");
+
+    let instagramParsed: unknown = ig?.content ?? "";
+    try {
+      if (ig?.content) instagramParsed = JSON.parse(ig.content);
+    } catch {
+      // keep raw string if not valid JSON
+    }
+
+    const data = {
+      facebook: fb?.content ?? "",
+      tiktok: tk?.content ?? "",
+      instagram: instagramParsed,
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "all-outputs.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -208,13 +281,63 @@ export default function PreviewPage() {
               />
             </div>
 
-            <button
-              onClick={handleRegenerate}
-              disabled={!!regenerating}
-              className="mt-3 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {regenerating === activeChannel ? "Regenerating…" : "Regenerate"}
-            </button>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleRegenerate}
+                disabled={!!regenerating}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {regenerating === activeChannel ? "Regenerating…" : "Regenerate"}
+              </button>
+
+              <button
+                onClick={handleCopy}
+                disabled={!!regenerating}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-50 transition-colors"
+              >
+                Copy
+              </button>
+
+              <button
+                onClick={handleDownloadTxt}
+                disabled={!!regenerating}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-50 transition-colors"
+              >
+                Download .txt
+              </button>
+
+              <button
+                onClick={handleDownloadJson}
+                disabled={!!regenerating}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-50 transition-colors"
+              >
+                Download .json
+              </button>
+            </div>
+
+            {/* Image prompt */}
+            <ImagePromptButton
+              outputId={activeOutput.$id}
+              initialImagePrompt={activeOutput.imagePrompt}
+            />
+
+            {/* Schedule */}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <input
+                type="datetime-local"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                min={new Date().toISOString().slice(0, 16)}
+                className="rounded-lg border border-slate-700 bg-slate-800/50 text-sm text-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                onClick={handleSchedule}
+                disabled={!scheduleDate || scheduling || !!regenerating}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {scheduling ? "Scheduling…" : "Schedule"}
+              </button>
+            </div>
           </>
         ) : (
           <p className="text-slate-400 text-sm">No output found for this channel.</p>

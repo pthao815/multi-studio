@@ -13,7 +13,7 @@ export type ChannelType =
 
 export type BrandVoice = "energetic" | "educational" | "funny" | "calm";
 
-export type ScheduleStatus = "pending" | "sent" | "cancelled";
+export type ScheduleStatus = "scheduled" | "pending" | "sent" | "cancelled";
 
 // ─── Appwrite Document Types ──────────────────────────────────────────────────
 
