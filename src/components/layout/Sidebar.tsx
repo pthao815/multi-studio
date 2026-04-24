@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, PlusCircle, Calendar, BarChart2, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, PlusCircle, Calendar, Settings, LogOut } from "lucide-react";
 import { account } from "@/lib/appwrite";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/new", label: "New Project", icon: PlusCircle },
   { href: "/dashboard/scheduler", label: "Scheduler", icon: Calendar },
-  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart2 },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 

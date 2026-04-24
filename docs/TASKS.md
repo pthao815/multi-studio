@@ -279,3 +279,9 @@
       DEC: none
       Blocks: none
       File(s): `src/app/dashboard/page.tsx`, `src/app/dashboard/new/page.tsx`, `src/app/dashboard/projects/[id]/page.tsx`
+      UI changes done:
+        - `src/app/layout.tsx` + `src/app/dashboard/layout.tsx`: removed `flex` from body, added `w-full` + `overflow-x-hidden` — fixes right-side viewport gap visible on all dashboard pages
+        - `src/app/dashboard/projects/[id]/processing/page.tsx`: replaced light-mode colours (bg-gray-50, text-gray-800) with dark theme palette
+        - `src/app/dashboard/new/page.tsx`: redesigned from single narrow column to two-column layout (lg:grid-cols-2); right panel shows contextual guide or scraped/transcript preview card; confirm-before-generate flow added
+      UI changes remaining:
+        - Sidebar collapse to icon-only on mobile (w-14 md:w-60)

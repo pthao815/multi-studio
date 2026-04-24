@@ -665,6 +665,25 @@
 
 **Blocker if test fails:** Check the `schedules` document in Appwrite console — confirm `userId` matches the logged-in user's ID.
 
+### Step 13.3: Build image prompt feature
+
+**Build:** `src/lib/prompts/image-prompt.ts`, `src/app/api/outputs/[id]/image-prompt/route.ts`, `src/components/preview/ImagePromptButton.tsx`
+
+**Follows:** Step 8.2, Step 6.1
+
+**Implementation notes:**
+- `image-prompt.ts` exports `buildImagePromptSystemPrompt()` and `buildImagePromptUserPrompt(content, channel)` — instructs AI to produce a detailed image generation prompt (subject, style, mood, composition) suited to the channel's visual format
+- `POST /api/outputs/[id]/image-prompt` validates session, calls `generateContent()`, then `databases.updateDocument(outputsCollectionId, id, { imagePrompt: result })` — returns `{ imagePrompt }` per DEC-12
+- `ImagePromptButton.tsx` renders a button on the preview page; on click calls the route, shows loading state, then displays the generated prompt in a read-only textarea with a copy button
+- `imagePrompt` field added to `Output` type in `src/types/index.ts`
+
+**Runnable test:**
+> Action: On preview page, click "Generate Image Prompt" on any output
+> Expected: Button shows loading state → textarea appears with a detailed image prompt; Appwrite console shows `imagePrompt` field populated on the output document
+> Fail signal: 403 (session mismatch — DEC-05); empty imagePrompt returned (check `generateContent()` call and prompt content)
+
+**Blocker if test fails:** Log the raw AI response inside the route (server console) — if it's empty, the prompt builder is returning blank content.
+
 ---
 
 ## Milestone 14: Full E2E on Vercel
@@ -681,16 +700,34 @@
 **Follows:** All prior milestones
 
 **Implementation notes:**
-- Create `src/components/ErrorBoundary.tsx` as a class component with `componentDidCatch` — wrap each major page's content in it
-- Mobile: add responsive Tailwind classes to dashboard grid (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`), new project page (full-width inputs on mobile), and preview page (stacked layout below `md:` breakpoint)
-- Test on mobile viewport using Chrome DevTools device simulation before deploying
+
+**UI fix — layout viewport gap (TASK-42 · `src/app/layout.tsx`, `src/app/dashboard/layout.tsx`)**
+- *Before:* All dashboard pages showed a large empty purple/gradient strip on the right side of the screen (~40% of viewport width) because `<body>` was `flex` row and `DashboardLayout` div had no `w-full`, causing it to shrink to content width only.
+- *After:* `flex` removed from `<body>`; `w-full` added to DashboardLayout div; `overflow-x-hidden` added to body. Dashboard now fills 100% of viewport width with no visual gap.
+
+**UI fix — processing page dark theme (TASK-42 · `src/app/dashboard/projects/[id]/processing/page.tsx`)**
+- *Before:* Processing page used `bg-gray-50` (white background) and `text-gray-800` — a light-mode colour palette that clashed with the rest of the dark-theme app, creating a jarring white flash mid-flow.
+- *After:* Replaced with dark palette (`text-white`, `text-slate-400`, `bg-white/[0.06]`, `text-indigo-400`). Step indicators and spinner now match the app's visual language. Two separate `return` paths consolidated into a single conditional return.
+
+**UI overhaul — new project page (TASK-42 · `src/app/dashboard/new/page.tsx`)**
+- *Before:* Single narrow `max-w-2xl` column. After clicking "Scrape URL" the page immediately created a project and redirected — no feedback, no preview, empty space below the form.
+- *After:* Two-column layout (`grid-cols-1 lg:grid-cols-2`). Left column: input form. Right column: context panel that changes based on state:
+  - **Empty state:** "How it works" guide — 3 numbered steps (Choose source → AI writes → Preview & publish) + channel badges (Facebook / TikTok / Instagram) + per-channel output description
+  - **After URL scrape / audio transcribe:** Preview card — extracted title, first 240 chars of content, character count, channel badges, "Generate Content →" confirm button, "Try a different URL / Upload a different file" reset link. Input is `disabled` until reset to prevent double-scrape confusion.
+  - **While typing text (>30 chars):** Live hint card — character count, channel badges, output description per channel.
+- Project is only created when the user explicitly clicks "Generate Content →" in the preview card (confirm-before-generate flow).
+
+**Remaining for Step 14.1:**
+- [TODO] Create `src/components/ErrorBoundary.tsx` as a class component with `componentDidCatch` — wrap each major page's content in it
+- [TODO] Mobile sidebar: collapse `w-60` to `w-14 md:w-60` with icon-only display below `md:` breakpoint — labels hidden via `hidden md:inline`
+- [TODO] Test on mobile viewport using Chrome DevTools device simulation (iPhone SE 375×667)
 
 **Runnable test:**
 > Action: In Chrome DevTools, set viewport to iPhone SE (375×667) → visit dashboard, new project, and preview pages
-> Expected: All pages are usable without horizontal scrolling; channel tabs stack or scroll horizontally; no text overflow
-> Fail signal: Horizontal overflow (missing `overflow-x-hidden` or non-responsive grid); sidebar overlaps content (missing mobile nav pattern)
+> Expected: All pages are usable without horizontal scrolling; sidebar collapses to icon-only; no text overflow
+> Fail signal: Horizontal overflow; sidebar overlaps content
 
-**Blocker if test fails:** Add `overflow-x-hidden` to the root `<body>` in `src/app/layout.tsx` and check which element is causing overflow using the Chrome DevTools "Overflow" indicator.
+**Blocker if test fails:** Check `overflow-x-hidden` is on `<body>` in `src/app/layout.tsx`. Verify sidebar uses `w-14 md:w-60`.
 
 ---
 
@@ -718,7 +755,7 @@
 ## Summary
 
 - **Total milestones:** 14
-- **Total steps:** 22
+- **Total steps:** 23
 - **Longest milestone (most steps):** Milestone 2 (Auth Works End-to-End) — 4 steps
 - **First step where a real Claude API call is made:** Step 6.1 (runnable test calls `generateContent()`)
 - **First step where real Appwrite data is written:** Step 2.1 (register creates a user; Step 2.3 creates the first `profiles` document)
@@ -753,9 +790,9 @@
   - TASK-26: Step 8.2
   - TASK-27: Step 9.1
   - TASK-28: Step 10.1
-  - TASK-29: Step 6.1 (image-prompt.ts built alongside other prompts)
-  - TASK-30: covered by Milestone 13 export step / preview page wiring — add Step 13.3 if needed
-  - TASK-31: same as TASK-30
+  - TASK-29: Step 13.3
+  - TASK-30: Step 13.3
+  - TASK-31: Step 13.3
   - TASK-32: Step 12.1
   - TASK-33: Step 11.1
   - TASK-34: Step 11.1
@@ -768,4 +805,4 @@
   - TASK-41: Step 14.1
   - TASK-42: Step 14.1
 
-> **Note on TASK-29, TASK-30, TASK-31 (image prompt feature):** These are covered by the preview page wiring in Step 8.2 and the `generateContent()` setup in Step 6.1. If the image-prompt feature needs its own dedicated runnable step, insert a Step 13.3 between Steps 13.1 and 13.2: Build `src/lib/prompts/image-prompt.ts`, implement `POST /api/outputs/[id]/image-prompt`, and build `ImagePromptButton.tsx`. Runnable test: click "Generate Image Prompt" on any output → Appwrite shows `imagePrompt` field populated on the output document.
+> **Completed steps as of 2026-04-24:** Steps 1.1–13.3 are all complete. Step 14.1 is partially complete — done: viewport layout fix, overflow-x-hidden, processing page dark theme, new project page UX overhaul (2-column layout, preview card, confirm-before-generate); remaining: ErrorBoundary component, mobile sidebar collapse. Step 14.2 (Vercel deploy) not started.

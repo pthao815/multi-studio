@@ -63,7 +63,7 @@ export default async function DashboardLayout({
   const profile = await getOrCreateProfile(user.$id);
 
   return (
-    <div className="flex min-h-screen bg-base">
+    <div className="flex min-h-screen w-full bg-base">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar displayName={profile.displayName as string} />
