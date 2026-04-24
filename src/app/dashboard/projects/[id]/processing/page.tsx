@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const STEPS = [
   "Analysing content",
@@ -63,6 +64,7 @@ export default function ProcessingPage() {
   }, [id, router]);
 
   return (
+    <ErrorBoundary>
     <div className="flex flex-1 items-center justify-center py-16 px-4">
       {error ? (
         <div className="text-center space-y-4">
@@ -143,5 +145,6 @@ export default function ProcessingPage() {
         </div>
       )}
     </div>
+    </ErrorBoundary>
   );
 }

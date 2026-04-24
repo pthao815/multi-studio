@@ -11,6 +11,7 @@ import { FacebookPreview } from "@/components/preview/FacebookPreview";
 import { TikTokPreview } from "@/components/preview/TikTokPreview";
 import { InstagramPreview } from "@/components/preview/InstagramPreview";
 import { ImagePromptButton } from "@/components/preview/ImagePromptButton";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import type { Project, Output, ChannelType } from "@/types";
 
 export default function PreviewPage() {
@@ -233,6 +234,7 @@ export default function PreviewPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -328,7 +330,7 @@ export default function PreviewPage() {
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
                 min={new Date().toISOString().slice(0, 16)}
-                className="rounded-lg border border-slate-700 bg-slate-800/50 text-sm text-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="rounded-lg border border-slate-700 bg-slate-800/50 text-sm text-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 [color-scheme:dark]"
               />
               <button
                 onClick={handleSchedule}
@@ -344,5 +346,6 @@ export default function PreviewPage() {
         )}
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

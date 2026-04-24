@@ -21,6 +21,7 @@ import {
   SCHEDULES_COL,
 } from "@/lib/appwrite";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import type { Project, SourceType } from "@/types";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -170,6 +171,7 @@ export default function DashboardPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fadeInUp">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -340,5 +342,6 @@ export default function DashboardPage() {
         </div>
       )}
     </div>
+    </ErrorBoundary>
   );
 }

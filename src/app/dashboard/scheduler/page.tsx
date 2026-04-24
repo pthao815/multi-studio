@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Query } from "appwrite";
 import { account, databases, DB_ID, SCHEDULES_COL, OUTPUTS_COL, PROJECTS_COL } from "@/lib/appwrite";
 import type { Schedule, Output, Project, ChannelType } from "@/types";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface ScheduleRow {
   schedule: Schedule;
@@ -114,6 +115,7 @@ export default function SchedulerPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-fadeInUp">
       <div>
         <h1 className="text-2xl font-bold text-white">Scheduler</h1>
@@ -165,5 +167,6 @@ export default function SchedulerPage() {
         </div>
       )}
     </div>
+    </ErrorBoundary>
   );
 }

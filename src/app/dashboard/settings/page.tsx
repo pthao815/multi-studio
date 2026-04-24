@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { account, databases, DB_ID, PROFILES_COL } from "@/lib/appwrite";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GradientButton } from "@/components/ui/GradientButton";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import type { BrandVoice } from "@/types";
 
 const BRAND_VOICES: { value: BrandVoice; label: string; description: string }[] = [
@@ -98,6 +99,7 @@ export default function SettingsPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-fadeInUp">
       <div>
         <h1 className="text-2xl font-bold text-white">Settings</h1>
@@ -199,5 +201,6 @@ export default function SettingsPage() {
         </GradientButton>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

@@ -12,6 +12,7 @@ import { UrlInput } from "@/components/input/UrlInput";
 import { TextInput } from "@/components/input/TextInput";
 import { AudioUpload } from "@/components/input/AudioUpload";
 import { deriveTitle } from "@/lib/utils";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const CHANNELS = [
   { label: "Facebook",  color: "bg-blue-500/20 text-blue-300 border-blue-500/30" },
@@ -297,6 +298,7 @@ export default function NewProjectPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white">New Project</h1>
@@ -360,5 +362,6 @@ export default function NewProjectPage() {
         <div>{renderRightPanel()}</div>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }
