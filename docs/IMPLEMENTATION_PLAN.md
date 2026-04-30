@@ -805,4 +805,4 @@
   - TASK-41: Step 14.1
   - TASK-42: Step 14.1
 
-> **Completed steps as of 2026-04-24:** Steps 1.1–13.3 are all complete. Step 14.1 is partially complete — done: viewport layout fix, overflow-x-hidden, processing page dark theme, new project page UX overhaul (2-column layout, preview card, confirm-before-generate); remaining: ErrorBoundary component, mobile sidebar collapse. Step 14.2 (Vercel deploy) not started.
+> **Completed steps as of 2026-04-26:** Steps 1.1–14.1 are all complete. Step 14.2: deployed to https://multi-studio.vercel.app on 2026-04-26 — build compiled, 16 pages, all 11 env vars set in Vercel Production, APPWRITE_API_KEY confirmed server-only. E2E checklist (register → generate → export → schedule on live URL) not yet run — pending manual Appwrite/Google OAuth hostname config first.

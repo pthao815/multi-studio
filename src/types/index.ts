@@ -33,6 +33,7 @@ export interface Project {
   title: string;
   sourceType: SourceType;
   sourceContent: string;
+  summarisedContent?: string;
   audioFileId?: string;
   transcription?: string;
   status: GenerationStatus;
@@ -46,7 +47,9 @@ export interface Output {
   userId: string;
   channel: ChannelType;
   content: string;
+  previousContent?: string;
   imagePrompt?: string;
+  qualityScore?: string;
   createdAt: string;
   updatedAt: string;
 }

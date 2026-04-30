@@ -4,7 +4,9 @@
 
 ## 1. System Overview
 
-AI Multi-Studio accepts one of three raw content sources from the user — a URL (scraped server-side by Cheerio), plain text (pasted directly), or an audio file (uploaded to Appwrite Storage, transcribed by AssemblyAI) — normalises all three paths into a single plain-text source string, and then triggers parallel calls to the Google Gemini API (`gemini-2.0-flash`) to produce three platform-optimised social media posts simultaneously: a Facebook storytelling post, a TikTok video script with scene labels, and an Instagram 10-slide carousel with caption and hashtags. The system is built on Next.js 14 (App Router) deployed to Vercel, uses Appwrite Cloud for authentication (Google OAuth + email/password), document storage (four collections: `profiles`, `projects`, `outputs`, `schedules`), and file storage (private audio bucket), and uses Recharts for basic usage analytics and Sonner for in-app notifications. Users can preview, inline-edit, regenerate per channel, export outputs as `.txt` or `.json`, and schedule posts for display in a lightweight scheduler view.
+AI Multi-Studio accepts one of three raw content sources from the user — a URL (scraped server-side by Cheerio), plain text (pasted directly), or an audio file (uploaded to Appwrite Storage, transcribed by AssemblyAI) — normalises all three paths into a single plain-text source string, and then triggers parallel calls to the Groq AI API (llama-3.3-70b-versatile) to produce five platform-optimised social media posts simultaneously: a Facebook storytelling post, a TikTok video script with scene labels, an Instagram 10-slide carousel with caption and hashtags, a LinkedIn professional article, and a Twitter/X numbered thread. The system is built on Next.js 14 (App Router) deployed to Vercel, uses Appwrite Cloud for authentication (Google OAuth + email/password), document storage (four collections: `profiles`, `projects`, `outputs`, `schedules`), and file storage (private audio bucket), and uses Recharts for usage analytics and Sonner for in-app notifications. Users can preview, inline-edit, regenerate per channel, view regeneration version history, compare two brand voice tones side-by-side, request a content quality score, export outputs as `.txt` or `.json`, and schedule posts in a weekly calendar view.
+
+**Expansion additions (Weeks 7–10):** 5-channel generation (DEC-20), content quality scoring (DEC-21), one-level version history (DEC-22), project duplication (DEC-23), ephemeral tone A/B comparison (DEC-24), source summarization for long content (DEC-25), Instagram hashtag optimiser (DEC-26).
 
 ---
 
@@ -213,7 +215,9 @@ flowchart TD
     TopBar["TopBar.tsx\n(responsive header)"]
 
     DashPage["dashboard/page.tsx\n(project grid, stats, analytics)"]
-    RechartsChart["Recharts BarChart\n(projects per day — Client Component)"]
+    RechartsChart["Recharts Charts\n(BarChart + LineChart — Client Component)"]
+    Skeleton["ProjectCardSkeleton.tsx\n[Expansion W7] animate-pulse loading card"]
+    EmptyState["EmptyDashboard.tsx\n[Expansion W7] zero-project empty state"]
 
     NewPage["dashboard/new/page.tsx\n(new project — Client Component)"]
     SourceSelector["SourceTypeSelector.tsx"]
@@ -224,14 +228,19 @@ flowchart TD
     ProcessingPage["dashboard/projects/[id]/processing/page.tsx\n(polls /api/projects/[id]/status DEC-03 — Client Component)"]
 
     PreviewPage["dashboard/projects/[id]/page.tsx\n(preview & edit — Client Component)"]
-    ChannelTabs["ChannelTabs.tsx\n(Facebook / TikTok / Instagram switcher)"]
-    FacebookPreview["FacebookPreview.tsx\n(post card + word count)"]
-    TikTokPreview["TikTokPreview.tsx\n(script + scene labels)"]
-    InstagramPreview["InstagramPreview.tsx\n(10-slide carousel via JSON.parse DEC-06)"]
+    ChannelTabs["ChannelTabs.tsx\n(5-tab switcher: FB/TT/IG/LI/TW — DEC-20)"]
+    FacebookPreview["FacebookPreview.tsx\n(post card + word count + restore button DEC-22)"]
+    TikTokPreview["TikTokPreview.tsx\n(script + scene labels + restore button DEC-22)"]
+    InstagramPreview["InstagramPreview.tsx\n(10-slide carousel via JSON.parse DEC-06\n+ Refresh Hashtags DEC-26)"]
+    LinkedInPreview["LinkedInPreview.tsx\n[Expansion W7] article card + word count DEC-20"]
+    TwitterPreview["TwitterPreview.tsx\n[Expansion W7] per-tweet cards + char count DEC-20"]
     ImagePromptButton["ImagePromptButton.tsx\n(calls /api/outputs/[id]/image-prompt DEC-12)"]
+    QualityScoreBadge["QualityScoreBadge.tsx\n[Expansion W9] score ring + tooltip DEC-21"]
+    ToneCompareModal["ToneCompareModal.tsx\n[Expansion W9] ephemeral 2-tone comparison DEC-24"]
 
     SettingsPage["dashboard/settings/page.tsx\n(display name, avatar, brand voice, keywords)"]
-    SchedulerPage["dashboard/scheduler/page.tsx\n(scheduled posts list)"]
+    SchedulerPage["dashboard/scheduler/page.tsx\n(list + calendar view FR-SCHED-05)"]
+    CalendarView["CalendarWeekView.tsx\n[Expansion W10] 7-col weekly grid"]
 
     Layout --> Sidebar
     Layout --> TopBar
@@ -243,6 +252,8 @@ flowchart TD
     Layout --> SchedulerPage
 
     DashPage --> RechartsChart
+    DashPage --> Skeleton
+    DashPage --> EmptyState
 
     NewPage --> SourceSelector
     NewPage --> UrlInput
@@ -253,7 +264,13 @@ flowchart TD
     PreviewPage --> FacebookPreview
     PreviewPage --> TikTokPreview
     PreviewPage --> InstagramPreview
+    PreviewPage --> LinkedInPreview
+    PreviewPage --> TwitterPreview
     PreviewPage --> ImagePromptButton
+    PreviewPage --> QualityScoreBadge
+    PreviewPage --> ToneCompareModal
+
+    SchedulerPage --> CalendarView
 ```
 
 ---
@@ -279,6 +296,7 @@ erDiagram
         string sourceContent
         string audioFileId
         string transcription
+        string summarisedContent
         string status
         datetime createdAt
         datetime updatedAt
@@ -291,6 +309,8 @@ erDiagram
         string channel
         string content
         string imagePrompt
+        string qualityScore
+        string previousContent
         datetime createdAt
         datetime updatedAt
     }
@@ -325,5 +345,12 @@ erDiagram
 | DEC-08 | FR-DASH-04 cascade delete omitted `schedules` collection, which holds `outputId` foreign keys | Deletion executes in strict order: `schedules` → `outputs` → `projects`; any step failure halts sequence and surfaces error to user |
 | DEC-09 | FR-PREV-05 requires streaming for per-channel regenerate but existing generation was non-streaming | `ai.ts` exports two separate functions: `generateContent()` (non-streaming `Promise<string>`) for initial parallel generation; `streamContent()` (`ReadableStream`) for regenerate endpoint only |
 | DEC-10 | FR-AUTH-03 required `/dashboard/*` protection but layout-level redirects risk flashing protected content | `middleware.ts` at project root blocks unauthenticated requests at the edge before any server component executes; dashboard layout does not duplicate the auth check |
-| DEC-11 | FR-GEN-01 required parallel generation but sequential calls (~5s × 3) would breach the 15-second NFR-01 budget | `POST /api/projects/[id]/generate` uses `Promise.all([facebook, tiktok, instagram])` — total latency equals the slowest single Claude call, not the sum |
+| DEC-11 | FR-GEN-01 required parallel generation but sequential calls (~5s × 3) would breach the 15-second NFR-01 budget | `POST /api/projects/[id]/generate` uses `Promise.all([facebook, tiktok, instagram, linkedin, twitter])` — total latency equals the slowest single AI call, not the sum |
 | DEC-12 | FR-PREV-06 image prompt feature had no implementation home; reusing `PUT /api/outputs/[id]` would conflate two distinct operations | Dedicated route `POST /api/outputs/[id]/image-prompt` with its own system prompt in `lib/prompts/image-prompt.ts`; result saved to `outputs.imagePrompt` field separately from `content` |
+| DEC-20 | LinkedIn and Twitter prompts existed but were not wired into generate route or preview UI | Generate route `Promise.all` expanded from 3 to 5 channels; `ChannelTabs` expanded from 3 to 5 tabs; `LinkedInPreview.tsx` and `TwitterPreview.tsx` added |
+| DEC-21 | Quality score requires 6 structured values per output; Appwrite document model has no sub-document type | Quality score stored as JSON string in `outputs.qualityScore` (same pattern as DEC-06); `QualityScoreBadge.tsx` parses with try/catch; generation uses `temperature: 0.2` + JSON mode |
+| DEC-22 | Regeneration overwrites content with no recovery path | `previousContent` string field added to `outputs`; overwritten before every content write; "Restore Previous Version" button swaps current ↔ previous; one level of history only |
+| DEC-23 | Project duplication scope (source only vs. source + outputs) was unspecified | Duplication copies source fields only; no outputs copied; new project starts at `status: "pending"` so user re-generates with potentially different brand voice |
+| DEC-24 | Tone comparison generates real content that must not auto-save to DB or create orphaned outputs | Compare route returns `{ contentA, contentB }` to client state only; user explicitly saves chosen version via existing `PUT /api/outputs/[id]`; unused versions are discarded |
+| DEC-25 | DEC-15 silently truncates transcripts >12,000 chars; long audio is the primary high-value use case | Summarisation triggers at >8,000 chars; result stored in `projects.summarisedContent` separate from original; generate route uses `summarisedContent ?? sourceContent` |
+| DEC-26 | Instagram hashtag optimiser must update only hashtags without regenerating slides or caption | Route reads existing JSON, calls hashtag-only prompt, merges `{ ...existing, hashtags: newHashtags }`, writes merged JSON string back to `outputs.content` |

@@ -5,6 +5,7 @@ import { Query } from "appwrite";
 import { account, databases, DB_ID, SCHEDULES_COL, OUTPUTS_COL, PROJECTS_COL } from "@/lib/appwrite";
 import type { Schedule, Output, Project, ChannelType } from "@/types";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { CalendarWeekView } from "@/components/scheduler/CalendarWeekView";
 
 interface ScheduleRow {
   schedule: Schedule;
@@ -35,10 +36,37 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-red-500/20 text-red-300 border-red-500/30",
 };
 
+type ViewMode = "list" | "calendar";
+
+function getMondayOfWeek(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function formatWeekRange(weekStart: Date): string {
+  const weekEnd = addDays(weekStart, 6);
+  const fmt = (d: Date) =>
+    d.toLocaleDateString([], { month: "short", day: "numeric" });
+  const year = weekEnd.getFullYear();
+  return `${fmt(weekStart)} – ${fmt(weekEnd)}, ${year}`;
+}
+
 export default function SchedulerPage() {
   const [rows, setRows] = useState<ScheduleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [weekStart, setWeekStart] = useState<Date>(() => getMondayOfWeek(new Date()));
 
   useEffect(() => {
     async function load() {
@@ -116,55 +144,116 @@ export default function SchedulerPage() {
 
   return (
     <ErrorBoundary>
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-fadeInUp">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Scheduler</h1>
-        <p className="text-slate-400 text-sm mt-1">Your scheduled posts, sorted by time.</p>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-fadeInUp">
+      {/* Header row */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Scheduler</h1>
+          <p className="text-slate-400 text-sm mt-1">Your scheduled posts.</p>
+        </div>
+
+        {/* List / Calendar toggle */}
+        <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-800/60 border border-slate-700/50 self-start sm:self-auto">
+          <button
+            onClick={() => setViewMode("list")}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              viewMode === "list"
+                ? "bg-slate-700 text-white shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            List
+          </button>
+          <button
+            onClick={() => setViewMode("calendar")}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              viewMode === "calendar"
+                ? "bg-slate-700 text-white shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            Calendar
+          </button>
+        </div>
       </div>
 
-      {rows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <p className="text-slate-400 text-sm">No scheduled posts yet.</p>
-          <p className="text-slate-600 text-xs">
-            Open a project preview and pick a date to schedule a post.
-          </p>
+      {/* Calendar week navigation (only in calendar mode) */}
+      {viewMode === "calendar" && (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setWeekStart((w) => addDays(w, -7))}
+            className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/60 text-xs text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
+          >
+            ← Prev
+          </button>
+          <span className="flex-1 text-center text-sm text-slate-300 font-medium">
+            {formatWeekRange(weekStart)}
+          </span>
+          <button
+            onClick={() => setWeekStart((w) => addDays(w, 7))}
+            className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/60 text-xs text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
+          >
+            Next →
+          </button>
+          <button
+            onClick={() => setWeekStart(getMondayOfWeek(new Date()))}
+            className="px-3 py-1.5 rounded-lg border border-indigo-600/50 bg-indigo-600/20 text-xs text-indigo-300 hover:bg-indigo-600/30 transition-colors"
+          >
+            Today
+          </button>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {rows.map(({ schedule, output, project }) => {
-            const channel = (schedule.platform ?? output?.channel ?? "facebook") as ChannelType;
-            const scheduledLocal = new Date(schedule.scheduledAt).toLocaleString();
+      )}
 
-            return (
-              <div
-                key={schedule.$id}
-                className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors"
-              >
-                {/* Channel badge */}
-                <span
-                  className={`shrink-0 px-2.5 py-1 rounded-lg border text-xs font-medium ${CHANNEL_COLORS[channel] ?? CHANNEL_COLORS.facebook}`}
-                >
-                  {CHANNEL_LABELS[channel] ?? channel}
-                </span>
+      {/* Calendar view */}
+      {viewMode === "calendar" && (
+        <CalendarWeekView rows={rows} weekStart={weekStart} />
+      )}
 
-                {/* Project title */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">
-                    {project?.title ?? "Unknown project"}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">{scheduledLocal}</p>
-                </div>
+      {/* List view */}
+      {viewMode === "list" && (
+        <>
+          {rows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <p className="text-slate-400 text-sm">No scheduled posts yet.</p>
+              <p className="text-slate-600 text-xs">
+                Open a project preview and pick a date to schedule a post.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {rows.map(({ schedule, output, project }) => {
+                const channel = (schedule.platform ?? output?.channel ?? "facebook") as ChannelType;
+                const scheduledLocal = new Date(schedule.scheduledAt).toLocaleString();
 
-                {/* Status badge */}
-                <span
-                  className={`shrink-0 px-2.5 py-1 rounded-lg border text-xs font-medium ${STATUS_COLORS[schedule.status] ?? STATUS_COLORS.scheduled}`}
-                >
-                  {schedule.status}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+                return (
+                  <div
+                    key={schedule.$id}
+                    className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors"
+                  >
+                    <span
+                      className={`shrink-0 px-2.5 py-1 rounded-lg border text-xs font-medium ${CHANNEL_COLORS[channel] ?? CHANNEL_COLORS.facebook}`}
+                    >
+                      {CHANNEL_LABELS[channel] ?? channel}
+                    </span>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {project?.title ?? "Unknown project"}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">{scheduledLocal}</p>
+                    </div>
+
+                    <span
+                      className={`shrink-0 px-2.5 py-1 rounded-lg border text-xs font-medium ${STATUS_COLORS[schedule.status] ?? STATUS_COLORS.scheduled}`}
+                    >
+                      {schedule.status}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
     </ErrorBoundary>

@@ -580,9 +580,161 @@ DEC-15 for content length).
 
 | Scenario | Behavior |
 |---|---|
-| `sourceContent` is an empty string | `generateContent()` and `streamContent()` throw a `TypeError` with message `"sourceContent must not be empty"` **before** making any Claude API call. The route handler catches this and maps it to `GENERATION_FAILED` / `REGENERATION_FAILED`. No API credit is consumed. |
-| `sourceContent` is truncated by DEC-15 (>12,000 chars) | The truncated string with `…[content truncated]` suffix is passed to the prompt builder as-is. The prompt builder does not know or check whether truncation occurred. No special instruction is added to the prompt. Claude generates from the truncated content. |
+| `sourceContent` is an empty string | `generateContent()` and `streamContent()` throw a `TypeError` with message `"sourceContent must not be empty"` **before** making any AI API call. The route handler catches this and maps it to `GENERATION_FAILED` / `REGENERATION_FAILED`. No API credit is consumed. |
+| `sourceContent` is truncated by DEC-15 (>12,000 chars) | The truncated string with `…[content truncated]` suffix is passed to the prompt builder as-is. In practice this guard should not trigger for content that passed through the DEC-25 summarisation step (which targets 2,500–3,000 chars). |
 | `brandVoice` is not set (null / undefined) | `buildBrandVoicePrompt()` uses the `calm` fallback tone. Generation proceeds normally. No error is thrown and no warning is logged. |
 | `brandKeywords` is `[]` | `buildBrandVoicePrompt()` returns the tone instruction sentence only. The keywords sentence is omitted entirely. The `{{BRAND_VOICE_FRAGMENT}}` placeholder is replaced with a single-sentence fragment. |
 | `brandKeywords` contains strings with special characters | Keywords are interpolated as-is into the keywords sentence. No HTML encoding, no escaping. The string `"AI/ML"` appears in the prompt as `AI/ML`. |
 | `POST_CONTENT` (image-prompt input) is an empty string | `generateContent()` throws `TypeError("sourceContent must not be empty")` via the same guard. The `POST /api/outputs/[id]/image-prompt` route catches this and returns `IMAGE_PROMPT_FAILED`. |
+| `qualityScore` JSON fails to parse (score route) | `QualityScoreBadge.tsx` wraps `JSON.parse(output.qualityScore)` in try/catch. On failure, renders a "—" placeholder badge. Does not crash or affect other channel tabs. |
+| `summarisedContent` is empty but `sourceContent` > 8,000 chars | The generate route falls back to `sourceContent` with the DEC-15 12,000-char truncation guard as the final safety net. A `console.warn` is logged for observability. |
+
+---
+
+## 7. Expansion Prompt Templates (Weeks 7–10)
+
+> These three prompt builders were added in the expansion phase. They follow the same `{ system: string, user: string }` return shape and DEC-14 role structure as the original six prompt files. They do **not** call `buildBrandVoicePrompt()` — each has its own focused objective and temperature setting. See DEC-21, DEC-25, DEC-26.
+
+---
+
+### quality-score.ts
+
+> Evaluates one existing post on four criteria. Called by `POST /api/outputs/[id]/score`.
+> Uses `temperature: 0.2` and `response_format: { type: "json_object" }` (DEC-21).
+> `buildBrandVoicePrompt()` is **not** called — brand alignment is evaluated against the `brandVoice` value passed directly into the system prompt.
+
+**Function signature:**
+```typescript
+function buildQualityScorePrompt(channel: string, brandVoice: string): { system: string, user: string }
+```
+
+**system role:**
+```
+You are a social media content strategist evaluating a [CHANNEL] post.
+
+Score the post on exactly 4 criteria. Each criterion is scored 0–25 (integer only).
+The 4 criterion scores must sum exactly to the total score.
+
+Criteria:
+- hook (0–25): Does the opening sentence immediately stop scrolling or grab attention?
+  25 = irresistible, curiosity-driven hook. 0 = generic opener with no pull.
+- cta (0–25): Is the call to action specific, compelling, and clearly actionable?
+  25 = precise action with reason to act. 0 = absent, vague, or generic.
+- platformFit (0–25): Does the format, length, and tone match the norms of [CHANNEL]?
+  25 = indistinguishable from native high-performing content. 0 = wrong platform entirely.
+- brandAlignment (0–25): Does the content reflect the expected tone: [BRAND_VOICE]?
+  25 = tone is unmistakably [BRAND_VOICE] throughout. 0 = tone contradicts [BRAND_VOICE].
+
+Return ONLY valid JSON — no other text, no markdown fences:
+{
+  "total": integer (sum of the four scores),
+  "hook": integer 0–25,
+  "cta": integer 0–25,
+  "platformFit": integer 0–25,
+  "brandAlignment": integer 0–25,
+  "tip": "One specific, actionable improvement suggestion in one sentence."
+}
+```
+
+**user role:**
+```
+Evaluate this [CHANNEL] post:
+
+[POST_CONTENT]
+```
+
+**Output contract:**
+- Format: JSON object with 6 keys: `total` (0–100), `hook` (0–25), `cta` (0–25), `platformFit` (0–25), `brandAlignment` (0–25), `tip` (string)
+- Invariant enforced by route handler: `hook + cta + platformFit + brandAlignment === total`
+- If invariant fails after parse, route logs the raw response and returns `SCORE_FAILED` (400)
+- Stored in `outputs.qualityScore` as a raw JSON string (DEC-21)
+
+---
+
+### summarize.ts
+
+> Condenses source content longer than 8,000 characters for use as AI generation input. Called by the new project page when `sourceContent.length > 8000` (DEC-25).
+> Uses `temperature: 0.3`. `buildBrandVoicePrompt()` is **not** called — summarisation is content-neutral.
+
+**Function signature:**
+```typescript
+function buildSummarizePrompt(): { system: string, user: string }
+```
+
+**system role:**
+```
+You are a research assistant preparing source material for social media content creation.
+
+Summarise the following article or audio transcript. Follow these rules exactly:
+- Target length: 2,500–3,000 characters (count before returning)
+- Preserve: the main thesis or argument, key supporting points, notable statistics
+  or data points, direct quotes if present, any explicit call to action
+- Remove: filler phrases, repetition, boilerplate intros/outros, metadata
+  (timestamps, speaker labels, chapter markers), any content not directly
+  relevant to the core message
+- Structure: flowing prose — do not add headings, bullet points, or numbering
+- Do not include any commentary about the summarisation process
+- Output plain text only — no markdown formatting
+```
+
+**user role:**
+```
+Summarise the following content:
+
+[SOURCE_CONTENT]
+```
+
+**Output contract:**
+- Format: Plain text, flowing prose
+- Length: 2,500–3,000 characters
+- Required: main thesis, key points, statistics, quotes (if any)
+- Forbidden: headings, bullet points, meta-commentary, markdown
+- Stored in `projects.summarisedContent` (DEC-25); never overwrites `projects.sourceContent`
+
+---
+
+### hashtag-optimizer.ts
+
+> Re-generates Instagram hashtags using the actual published slide content as context. Called by `POST /api/outputs/[id]/hashtags`. Uses `temperature: 0.4` and `response_format: { type: "json_object" }` (DEC-26). `buildBrandVoicePrompt()` is **not** called — hashtag relevance is topic-driven, not tone-driven.
+
+**Function signature:**
+```typescript
+function buildHashtagOptimizerPrompt(): { system: string, user: string }
+```
+
+**system role:**
+```
+You are an Instagram growth specialist optimising hashtags for a carousel post.
+
+Analyse the carousel slide content provided and return exactly 30 hashtags in three tiers:
+- Tier 1 — Broad (10 hashtags): general topic tags with >1 million posts; maximum reach
+- Tier 2 — Niche (10 hashtags): industry-specific tags with 100K–1M posts; targeted community
+- Tier 3 — Specific (10 hashtags): highly targeted tags with <100K posts that match
+  the exact subject matter; highest conversion, lowest competition
+
+Rules:
+- The array must contain exactly 30 strings
+- Each string is the hashtag text without the # symbol
+- All lowercase, no spaces, no special characters other than letters and digits
+- Do not repeat any hashtag across tiers
+
+Return ONLY valid JSON — no other text, no markdown fences:
+{
+  "hashtags": [exactly 30 lowercase strings without # prefix]
+}
+```
+
+**user role:**
+```
+Optimise hashtags for this Instagram carousel:
+
+[SLIDES_CONTENT]
+```
+
+> `[SLIDES_CONTENT]` is constructed by the route handler by joining the 10 slide strings with `\n\n` — this gives the model the full text content of the carousel without the JSON structure.
+
+**Output contract:**
+- Format: JSON object with one key: `hashtags` (array of exactly 30 strings)
+- Validation: `hashtags.length === 30` checked by route handler; failure returns `HASHTAG_FAILED` (400)
+- Applied via in-place merge: `{ ...existingInstagramJSON, hashtags: newHashtags }` (DEC-26)
+- `slides` and `caption` fields are not touched by this route

@@ -52,9 +52,11 @@ export async function PUT(
   const { content } = await request.json() as { content: string };
   const updatedAt = new Date().toISOString();
 
+  // Copy current content → previousContent before overwriting (DEC-22)
   try {
     await serverDatabases.updateDocument(DB_ID, OUTPUTS_COL, outputId, {
       content,
+      previousContent: output.content,
       updatedAt,
     });
   } catch {

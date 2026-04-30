@@ -7,6 +7,8 @@ import { streamContent, MAX_SOURCE_CONTENT_LENGTH } from "@/lib/ai";
 import { buildFacebookPrompt } from "@/lib/prompts/facebook";
 import { buildTikTokPrompt } from "@/lib/prompts/tiktok";
 import { buildInstagramPrompt } from "@/lib/prompts/instagram";
+import { buildLinkedInPrompt } from "@/lib/prompts/linkedin";
+import { buildTwitterPrompt } from "@/lib/prompts/twitter";
 import type { Output, Project, Profile, ChannelType } from "@/types";
 
 const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DB_ID!;
@@ -119,6 +121,12 @@ export async function POST(
     const p = buildInstagramPrompt(brandVoice, brandKeywords);
     systemPrompt = p.system;
     userPrompt = p.user + "\n\n" + sourceContent;
+  } else if (channel === "linkedin") {
+    systemPrompt = buildLinkedInPrompt(brandVoice, brandKeywords);
+    userPrompt = sourceContent;
+  } else if (channel === "twitter") {
+    systemPrompt = buildTwitterPrompt(brandVoice, brandKeywords);
+    userPrompt = sourceContent;
   } else {
     return new Response(JSON.stringify({ error: "Unsupported channel" }), {
       status: 400,
@@ -136,11 +144,18 @@ export async function POST(
       accumulated += decoder.decode(chunk, { stream: true });
       controller.enqueue(chunk);
     },
-    flush() {
+    async flush() {
       accumulated += decoder.decode();
+      // Read current content after stream closes — do not read before (DEC-22)
+      let previousContent = "";
+      try {
+        const current = await serverDatabases.getDocument(DB_ID, OUTPUTS_COL, outputId);
+        previousContent = (current as unknown as { content: string }).content ?? "";
+      } catch {}
       serverDatabases
         .updateDocument(DB_ID, OUTPUTS_COL, outputId, {
           content: accumulated,
+          previousContent,
           updatedAt: new Date().toISOString(),
         })
         .catch(() => {});

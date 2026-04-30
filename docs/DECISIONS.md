@@ -168,4 +168,60 @@ If the response status is 401 or the fetch fails → redirect to `/login`. If th
 **Affects:** `src/app/api/projects/[id]/generate/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`
 
 ---
+## DEC-20: Generate route expands from 3 to 5 channels via Promise.all
+
+**Gap:** LinkedIn and Twitter prompts were written in Weeks 3–4 but the `Promise.all` in `POST /api/projects/[id]/generate` only fires facebook, tiktok, and instagram. The preview page only renders 3 tabs. Users cannot see LinkedIn or Twitter output.
+**Decision:** Expand the `Promise.all` in `generate/route.ts` from 3 calls to 5, adding `linkedin` and `twitter` alongside the existing three. `ChannelTabs.tsx` expands from a 3-tab to a 5-tab switcher. Two new preview components are added: `LinkedInPreview.tsx` and `TwitterPreview.tsx`. The generate route now creates 5 output documents per project instead of 3. `export const maxDuration = 60` (DEC-19) remains sufficient — wall time is still bounded by the slowest single AI call, not the sum.
+**Rationale:** The prompts already exist and are high quality (AI_LAYER.md sections linkedin.ts, twitter.ts). The only barrier was UI exposure. Exposing all 5 channels transforms the product from "3-platform tool" to "5-platform tool" — the primary user-facing claim — at minimal additional cost.
+**Affects:** `src/app/api/projects/[id]/generate/route.ts`, `src/components/preview/ChannelTabs.tsx`, `src/app/dashboard/projects/[id]/page.tsx`, new `src/components/preview/LinkedInPreview.tsx`, new `src/components/preview/TwitterPreview.tsx`
+
+---
+## DEC-21: Quality score stored as JSON string in outputs.qualityScore field
+
+**Gap:** FR-SCORE-02 requires a structured quality report (total + 4 sub-scores + tip) to be persisted per output. The `outputs` collection has no structured sub-document support in Appwrite's document model. Adding 6 separate numeric/string attributes would clutter the schema.
+**Decision:** The quality score is stored as a raw JSON string in a single `qualityScore` string attribute on the `outputs` collection, using the same pattern established by DEC-06 for Instagram content. The format is: `{ "total": N, "hook": N, "cta": N, "platformFit": N, "brandAlignment": N, "tip": "string" }`. `QualityScoreBadge.tsx` calls `JSON.parse(output.qualityScore)` to render the badge and tooltip. Score generation uses `temperature: 0.2` and JSON mode (`response_format: { type: "json_object" }`) to ensure consistent format.
+**Rationale:** One string field requires one Appwrite attribute addition. JSON mode eliminates format drift (same principle as DEC-18 for Instagram). `JSON.parse` failure is caught and renders a "Score unavailable" placeholder rather than crashing.
+**Affects:** Appwrite `outputs` collection (add `qualityScore` string attribute), new `src/app/api/outputs/[id]/score/route.ts`, new `src/lib/prompts/quality-score.ts`, new `src/components/preview/QualityScoreBadge.tsx`
+
+---
+## DEC-22: Version history is one-level only via previousContent field
+
+**Gap:** FR-HIST-01/02 requires an undo path after regeneration or inline edit overwrites the content field. Full multi-level version history would require a separate `output_versions` collection with unbounded growth.
+**Decision:** A single `previousContent` string attribute is added to the `outputs` collection. Before any write to `content` (inline edit save in `PUT /api/outputs/[id]`, stream accumulation in `POST /api/outputs/[id]/regenerate`), the current `content` value is copied to `previousContent`. Only one snapshot is kept — swapping current ↔ previous is a complete undo/redo cycle. The "Restore Previous Version" button in each preview component is shown only when `previousContent` is non-empty.
+**Rationale:** Multi-level history is post-internship scope. One-level undo covers the primary failure mode (bad regeneration) with zero schema complexity. The pattern is identical to a clipboard: one snapshot, always overwritten.
+**Affects:** Appwrite `outputs` collection (add `previousContent` string attribute), `src/app/api/outputs/[id]/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`, all 5 preview components
+
+---
+## DEC-23: Project duplication copies source only — no output copy
+
+**Gap:** FR-DUP-02 requires duplicating a project, but the expected scope of duplication (source only vs. source + outputs) was not specified.
+**Decision:** `POST /api/projects/[id]/duplicate` creates a new `projects` document with `sourceType`, `sourceContent`, `summarisedContent` (if present), and `title` (appended with " (copy)") copied from the original. No `outputs` documents are copied. The new project starts with `status: "pending"`. The user is navigated to the new project's page to trigger generation.
+**Rationale:** Duplicating outputs would immediately become stale the moment the user changes brand voice (the primary reason to duplicate). The purpose of duplication is to re-generate from the same source — starting fresh is the correct default. Copying outputs would also double Appwrite storage usage without user value.
+**Affects:** new `src/app/api/projects/[id]/duplicate/route.ts`, `src/app/dashboard/page.tsx`
+
+---
+## DEC-24: Tone comparison route is ephemeral — results are never auto-saved to DB
+
+**Gap:** FR-COMP-03 requires that the A/B comparison does not overwrite existing output. However, the comparison fires real AI calls and generates real content — where does the result live before the user chooses one?
+**Decision:** `POST /api/projects/[id]/compare` returns `{ contentA: string, contentB: string }` and saves nothing to the database. The modal holds both strings in component state only. If the user clicks "Use This Version", the chosen string is then saved via the existing `PUT /api/outputs/[id]` call. If the user closes the modal without choosing, both results are discarded.
+**Rationale:** Auto-saving one or both comparison results would create orphaned or duplicate outputs. The user intent is to compare then pick — the pick step is what should trigger a DB write. This keeps the route stateless and prevents DB pollution from exploratory comparisons.
+**Affects:** new `src/app/api/projects/[id]/compare/route.ts`, new `src/components/preview/ToneCompareModal.tsx`
+
+---
+## DEC-25: Source summarization threshold is 8,000 characters; summarised content stored separately
+
+**Gap:** DEC-15 silently truncates `sourceContent` at 12,000 characters. For long audio transcripts (e.g., a 45-minute podcast = ~25,000 chars) or long articles, the second half of the content is dropped without user awareness. FR-SUMM-01 addresses this with an AI summarisation step.
+**Decision:** When `sourceContent.length > 8,000` characters, the new project page automatically calls a summarisation endpoint after input completes. The result (target 2,500–3,000 chars) is stored in `projects.summarisedContent` — a new string attribute separate from `sourceContent`. The generate route uses `summarisedContent ?? sourceContent` as the prompt input. The 12,000-char guard in DEC-15 (`MAX_SOURCE_CONTENT_LENGTH`) is kept as a final safety net but should not trigger in normal flow once summarisation is active. The user can override by editing the source in the preview panel (FR-SRC-02/04), which writes to `summarisedContent`.
+**Rationale:** Silently truncating 25,000 chars to 12,000 discards half a podcast transcript. Summarising to 3,000 chars preserves all key points intelligently. Storing summarised content in a separate field ensures the original transcript is never lost and can be viewed (FR-SUMM-02 toggle).
+**Affects:** Appwrite `projects` collection (add `summarisedContent` string attribute), new `src/lib/prompts/summarize.ts`, `src/app/dashboard/new/page.tsx`, `src/app/api/projects/[id]/generate/route.ts`, `src/app/api/outputs/[id]/regenerate/route.ts`
+
+---
+## DEC-26: Instagram hashtag optimiser updates the hashtags array in-place within the JSON object
+
+**Gap:** FR-HASH-03 requires that the hashtag optimiser preserves the existing `slides` and `caption` while replacing only `hashtags`. The Instagram `content` field stores all three as a single JSON string (DEC-06). Replacing the whole JSON object would require re-generating slides and caption.
+**Decision:** `POST /api/outputs/[id]/hashtags` fetches the current output, calls `JSON.parse(content)` to extract the existing object, runs the hashtag-optimisation prompt, parses the returned `{ hashtags: [...] }`, then reconstructs the full object by spreading: `{ ...existing, hashtags: newHashtags }` and stringifying back. The result is written via the existing `databases.updateDocument()` call on the `content` field. No new DB field is required.
+**Rationale:** The Instagram JSON object's three fields are independent — slides are about message, hashtags are about discoverability. A targeted hashtag update should not risk re-generating slide content. In-place merge preserves the full post while improving one dimension of it.
+**Affects:** new `src/app/api/outputs/[id]/hashtags/route.ts`, new `src/lib/prompts/hashtag-optimizer.ts`, `src/components/preview/InstagramPreview.tsx`
+
+---
 API contracts defined in docs/API_CONTRACT.md supersede any request/response shapes in docs/MODULE_STRUCTURE.md if they conflict.

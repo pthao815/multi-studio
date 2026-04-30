@@ -7,6 +7,8 @@ import { generateContent, MAX_SOURCE_CONTENT_LENGTH } from "@/lib/ai";
 import { buildFacebookPrompt } from "@/lib/prompts/facebook";
 import { buildTikTokPrompt } from "@/lib/prompts/tiktok";
 import { buildInstagramPrompt } from "@/lib/prompts/instagram";
+import { buildLinkedInPrompt } from "@/lib/prompts/linkedin";
+import { buildTwitterPrompt } from "@/lib/prompts/twitter";
 import type { Project, Profile } from "@/types";
 
 const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DB_ID!;
@@ -81,8 +83,8 @@ export async function POST(
     // Fall through with calm defaults — generation still proceeds
   }
 
-  // Truncate source content if needed (DEC-15)
-  let sourceContent = project.sourceContent;
+  // Use summarisedContent when present (DEC-25), then truncate guard (DEC-15)
+  let sourceContent = project.summarisedContent || project.sourceContent;
   if (sourceContent.length > MAX_SOURCE_CONTENT_LENGTH) {
     sourceContent = sourceContent.slice(0, MAX_SOURCE_CONTENT_LENGTH) + "…[content truncated]";
   }
@@ -91,17 +93,23 @@ export async function POST(
   const facebookPrompt = buildFacebookPrompt(brandVoice, brandKeywords);
   const tiktokPrompt = buildTikTokPrompt(brandVoice, brandKeywords);
   const instagramPrompt = buildInstagramPrompt(brandVoice, brandKeywords);
+  const linkedinPrompt = buildLinkedInPrompt(brandVoice, brandKeywords);
+  const twitterPrompt = buildTwitterPrompt(brandVoice, brandKeywords);
 
-  // Run all 3 AI calls in parallel — sequential calls are forbidden (DEC-11)
+  // Run all 5 AI calls in parallel — sequential calls are forbidden (DEC-11)
   let facebookContent: string;
   let tiktokContent: string;
   let instagramContent: string;
+  let linkedinContent: string;
+  let twitterContent: string;
 
   try {
-    [facebookContent, tiktokContent, instagramContent] = await Promise.all([
+    [facebookContent, tiktokContent, instagramContent, linkedinContent, twitterContent] = await Promise.all([
       generateContent(facebookPrompt.system, facebookPrompt.user + "\n\n" + sourceContent),
       generateContent(tiktokPrompt.system, tiktokPrompt.user + "\n\n" + sourceContent),
       generateContent(instagramPrompt.system, instagramPrompt.user + "\n\n" + sourceContent, { jsonMode: true }),
+      generateContent(linkedinPrompt, sourceContent),
+      generateContent(twitterPrompt, sourceContent),
     ]);
   } catch {
     await serverDatabases.updateDocument(DB_ID, PROJECTS_COL, projectId, {
@@ -132,7 +140,7 @@ export async function POST(
     return NextResponse.json({ error: "Generation failed", code: "GENERATION_FAILED" }, { status: 500 });
   }
 
-  // Write 3 output documents then mark project done
+  // Write 5 output documents then mark project done
   try {
     const now = new Date().toISOString();
     await Promise.all([
@@ -157,6 +165,22 @@ export async function POST(
         userId,
         channel: "instagram",
         content: instagramContent,
+        createdAt: now,
+        updatedAt: now,
+      }),
+      serverDatabases.createDocument(DB_ID, OUTPUTS_COL, ID.unique(), {
+        projectId,
+        userId,
+        channel: "linkedin",
+        content: linkedinContent,
+        createdAt: now,
+        updatedAt: now,
+      }),
+      serverDatabases.createDocument(DB_ID, OUTPUTS_COL, ID.unique(), {
+        projectId,
+        userId,
+        channel: "twitter",
+        content: twitterContent,
         createdAt: now,
         updatedAt: now,
       }),

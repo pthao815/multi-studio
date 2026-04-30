@@ -22,7 +22,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="flex flex-col w-14 md:w-60 min-h-screen bg-surface border-r border-white/[0.06] shrink-0">
+    <aside className="flex flex-col w-14 md:w-60 h-full bg-surface border-r border-white/[0.06] shrink-0 overflow-y-auto">
       {/* Logo — matches TopBar height */}
       <div className="h-16 flex items-center justify-center md:justify-start md:px-5 border-b border-white/[0.06] shrink-0">
         <span className="hidden md:inline text-xl font-bold bg-gradient-to-r from-violet-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">

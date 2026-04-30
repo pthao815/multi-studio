@@ -10,9 +10,49 @@ import { ChannelTabs } from "@/components/preview/ChannelTabs";
 import { FacebookPreview } from "@/components/preview/FacebookPreview";
 import { TikTokPreview } from "@/components/preview/TikTokPreview";
 import { InstagramPreview } from "@/components/preview/InstagramPreview";
+import { LinkedInPreview } from "@/components/preview/LinkedInPreview";
+import { TwitterPreview } from "@/components/preview/TwitterPreview";
 import { ImagePromptButton } from "@/components/preview/ImagePromptButton";
+import { QualityScoreBadge } from "@/components/preview/QualityScoreBadge";
+import { ToneCompareModal } from "@/components/preview/ToneCompareModal";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import type { Project, Output, ChannelType } from "@/types";
+import type { Project, Output, ChannelType, BrandVoice } from "@/types";
+
+const WORD_LIMITS: Partial<Record<ChannelType, number>> = {
+  facebook: 600,
+  linkedin: 400,
+  tiktok: 160,
+};
+
+function countWords(text: string) {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function InlineEditCount({ channel, text }: { channel: ChannelType; text: string }) {
+  if (channel === "instagram") return null;
+
+  if (channel === "twitter") {
+    const tweets = text.split(/\n{2,}/).map((t) => t.trim()).filter(Boolean);
+    const maxLen = tweets.reduce((m, t) => Math.max(m, t.length), 0);
+    const color = maxLen > 280 ? "text-red-400" : maxLen > 224 ? "text-amber-400" : "text-slate-500";
+    return (
+      <p className={`text-xs text-right ${color}`}>
+        Longest tweet: {maxLen} / 280 chars
+      </p>
+    );
+  }
+
+  const limit = WORD_LIMITS[channel];
+  if (!limit) return null;
+  const words = countWords(text);
+  const amber = Math.floor(limit * 0.8);
+  const color = words > limit ? "text-red-400" : words > amber ? "text-amber-400" : "text-slate-500";
+  return (
+    <p className={`text-xs text-right ${color}`}>
+      {words.toLocaleString()} / {limit} words
+    </p>
+  );
+}
 
 export default function PreviewPage() {
   const { id } = useParams<{ id: string }>();
@@ -37,6 +77,13 @@ export default function PreviewPage() {
   const [regenerating, setRegenerating] = useState<ChannelType | null>(null);
   const [streamedContent, setStreamedContent] = useState("");
 
+  // Quality score state
+  const [scoringIds, setScoringIds] = useState<Set<string>>(new Set());
+
+  // Tone compare modal state
+  const [compareModalOpen, setCompareModalOpen] = useState(false);
+  const [userBrandVoice, setUserBrandVoice] = useState<BrandVoice>("calm");
+
   useEffect(() => {
     async function load() {
       try {
@@ -50,7 +97,47 @@ export default function PreviewPage() {
 
         setUserId(user.$id);
         setProject(projectDoc as unknown as Project);
-        setOutputs(outputsResult.documents as unknown as Output[]);
+
+        const fetchedOutputs = outputsResult.documents as unknown as Output[];
+        setOutputs(fetchedOutputs);
+
+        // Fetch brand voice for tone compare modal
+        try {
+          const profilesResult = await databases.listDocuments(
+            DB_ID,
+            process.env.NEXT_PUBLIC_APPWRITE_PROFILES_COLLECTION_ID!,
+            [Query.equal("userId", user.$id)]
+          );
+          if (profilesResult.documents.length > 0) {
+            const profile = profilesResult.documents[0] as unknown as { brandVoice: BrandVoice };
+            setUserBrandVoice(profile.brandVoice ?? "calm");
+          }
+        } catch {
+          // Fall through with calm default
+        }
+
+        // Kick off quality scoring in background — do NOT await (page must render first)
+        const missing = fetchedOutputs.filter((o) => !o.qualityScore);
+        if (missing.length > 0) {
+          setScoringIds(new Set(missing.map((o) => o.$id)));
+          missing.forEach(async (o) => {
+            try {
+              const res = await fetch(`/api/outputs/${o.$id}/score`, { method: "POST" });
+              if (res.ok) {
+                const data = await res.json() as { qualityScore: string };
+                setOutputs((prev) =>
+                  prev.map((out) =>
+                    out.$id === o.$id ? { ...out, qualityScore: data.qualityScore } : out
+                  )
+                );
+              }
+            } catch {
+              // Silent fail — badge renders "—" placeholder
+            } finally {
+              setScoringIds((prev) => { const next = new Set(prev); next.delete(o.$id); return next; });
+            }
+          });
+        }
       } catch {
         setError("Failed to load project.");
       } finally {
@@ -92,9 +179,13 @@ export default function PreviewPage() {
         return;
       }
 
-      // Update outputs state with saved content
+      // Optimistically update content + previousContent (DEC-22)
       setOutputs((prev) =>
-        prev.map((o) => (o.$id === editingId ? { ...o, content: editContent } : o))
+        prev.map((o) =>
+          o.$id === editingId
+            ? { ...o, content: editContent, previousContent: original.content }
+            : o
+        )
       );
     } catch {
       toast.error("Failed to save changes.");
@@ -133,12 +224,30 @@ export default function PreviewPage() {
         setStreamedContent(accumulated);
       }
 
+      // Optimistically update content + previousContent (DEC-22)
       setOutputs((prev) =>
         prev.map((o) =>
-          o.$id === activeOutput.$id ? { ...o, content: accumulated } : o
+          o.$id === activeOutput.$id
+            ? { ...o, content: accumulated, previousContent: o.content }
+            : o
         )
       );
       setEditContent(accumulated);
+
+      // Re-score this channel after regeneration (TASK-64)
+      const scoreOutputId = activeOutput.$id;
+      setScoringIds((prev) => new Set(Array.from(prev).concat(scoreOutputId)));
+      fetch(`/api/outputs/${scoreOutputId}/score`, { method: "POST" })
+        .then((res) => res.ok ? res.json() : null)
+        .then((data: { qualityScore: string } | null) => {
+          if (data?.qualityScore) {
+            setOutputs((prev) =>
+              prev.map((o) => o.$id === scoreOutputId ? { ...o, qualityScore: data.qualityScore } : o)
+            );
+          }
+        })
+        .catch(() => null)
+        .finally(() => setScoringIds((prev) => { const next = new Set(prev); next.delete(scoreOutputId); return next; }));
     } catch {
       toast.error("Regeneration failed.");
     } finally {
@@ -148,6 +257,40 @@ export default function PreviewPage() {
   }
 
   const activeOutput = outputs.find((o) => o.channel === activeChannel);
+
+  // Instagram hashtag refresh — update local output state
+  function handleInstagramContentUpdated(newContent: string) {
+    setOutputs((prev) =>
+      prev.map((o) =>
+        o.$id === activeOutput?.$id ? { ...o, content: newContent } : o
+      )
+    );
+    setEditContent(newContent);
+  }
+
+  // Tone compare — "Use This Version" saves via PUT then updates local state
+  function handleCompareUseVersion(newContent: string) {
+    setOutputs((prev) =>
+      prev.map((o) =>
+        o.$id === activeOutput?.$id
+          ? { ...o, content: newContent, previousContent: o.content }
+          : o
+      )
+    );
+    setEditContent(newContent);
+  }
+
+  // Bidirectional swap: content ↔ previousContent (DEC-22)
+  function handleRestored(newContent: string) {
+    setOutputs((prev) =>
+      prev.map((o) =>
+        o.$id === activeOutput?.$id
+          ? { ...o, content: newContent, previousContent: o.content }
+          : o
+      )
+    );
+    setEditContent(newContent);
+  }
 
   function handleCopy() {
     if (!activeOutput) return;
@@ -191,6 +334,8 @@ export default function PreviewPage() {
     const fb = outputs.find((o) => o.channel === "facebook");
     const tk = outputs.find((o) => o.channel === "tiktok");
     const ig = outputs.find((o) => o.channel === "instagram");
+    const li = outputs.find((o) => o.channel === "linkedin");
+    const tw = outputs.find((o) => o.channel === "twitter");
 
     let instagramParsed: unknown = ig?.content ?? "";
     try {
@@ -203,6 +348,8 @@ export default function PreviewPage() {
       facebook: fb?.content ?? "",
       tiktok: tk?.content ?? "",
       instagram: instagramParsed,
+      linkedin: li?.content ?? "",
+      twitter: tw?.content ?? "",
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -246,21 +393,65 @@ export default function PreviewPage() {
         </div>
       </div>
 
-      {/* Channel tabs */}
-      <ChannelTabs activeChannel={activeChannel} onChannelChange={setActiveChannel} />
+      {/* Channel tabs + quality score badge */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <ChannelTabs activeChannel={activeChannel} onChannelChange={setActiveChannel} />
+        </div>
+        {activeOutput && (
+          <div className="shrink-0">
+            <QualityScoreBadge
+              qualityScore={activeOutput.qualityScore}
+              loading={scoringIds.has(activeOutput.$id)}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Preview + edit */}
       <div className="pt-2">
         {activeOutput ? (
           <>
             {activeChannel === "facebook" && (
-              <FacebookPreview content={editContent || activeOutput.content} />
+              <FacebookPreview
+                content={editContent || activeOutput.content}
+                outputId={activeOutput.$id}
+                previousContent={activeOutput.previousContent}
+                onRestored={handleRestored}
+              />
             )}
             {activeChannel === "tiktok" && (
-              <TikTokPreview content={editContent || activeOutput.content} />
+              <TikTokPreview
+                content={editContent || activeOutput.content}
+                outputId={activeOutput.$id}
+                previousContent={activeOutput.previousContent}
+                onRestored={handleRestored}
+              />
             )}
             {activeChannel === "instagram" && (
-              <InstagramPreview content={editContent || activeOutput.content} />
+              <InstagramPreview
+                content={editContent || activeOutput.content}
+                outputId={activeOutput.$id}
+                previousContent={activeOutput.previousContent}
+                onRestored={handleRestored}
+                onContentUpdated={handleInstagramContentUpdated}
+              />
+            )}
+            {activeChannel === "linkedin" && (
+              <LinkedInPreview
+                content={editContent || activeOutput.content}
+                outputId={activeOutput.$id}
+                previousContent={activeOutput.previousContent}
+                onRestored={handleRestored}
+              />
+            )}
+            {activeChannel === "twitter" && (
+              <TwitterPreview
+                content={editContent || activeOutput.content}
+                outputId={activeOutput.$id}
+                previousContent={activeOutput.previousContent}
+                onRestored={handleRestored}
+              />
             )}
 
             {/* Inline edit textarea — auto-saves on blur */}
@@ -281,6 +472,11 @@ export default function PreviewPage() {
                 disabled={!!regenerating}
                 readOnly={!!regenerating}
               />
+              {/* Live count indicator */}
+              <InlineEditCount
+                channel={activeChannel}
+                text={regenerating === activeChannel ? streamedContent : editContent}
+              />
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -290,6 +486,14 @@ export default function PreviewPage() {
                 className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {regenerating === activeChannel ? "Regenerating…" : "Regenerate"}
+              </button>
+
+              <button
+                onClick={() => setCompareModalOpen(true)}
+                disabled={!!regenerating}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-violet-700 text-white hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Compare Tones
               </button>
 
               <button
@@ -345,6 +549,18 @@ export default function PreviewPage() {
           <p className="text-slate-400 text-sm">No output found for this channel.</p>
         )}
       </div>
+
+      {/* Tone Compare Modal (TASK-71/73) */}
+      {compareModalOpen && activeOutput && (
+        <ToneCompareModal
+          projectId={id}
+          outputId={activeOutput.$id}
+          channel={activeChannel}
+          initialBrandVoice={userBrandVoice}
+          onUseVersion={handleCompareUseVersion}
+          onClose={() => setCompareModalOpen(false)}
+        />
+      )}
     </div>
     </ErrorBoundary>
   );

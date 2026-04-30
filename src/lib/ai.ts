@@ -4,6 +4,7 @@ import type { BrandVoice } from "@/types";
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const MODEL = "llama-3.3-70b-versatile";
+const MODEL_FAST = "llama-3.1-8b-instant"; // for simple tasks: summarise, quality score
 
 export const MAX_SOURCE_CONTENT_LENGTH = 12000;
 
@@ -97,14 +98,16 @@ export function buildBrandVoicePrompt(
 export async function generateContent(
   systemPrompt: string,
   userContent: string,
-  options?: { jsonMode?: boolean }
+  options?: { jsonMode?: boolean; fast?: boolean }
 ): Promise<string> {
   if (!userContent.trim()) {
     throw new TypeError("sourceContent must not be empty");
   }
 
+  const model = options?.fast ? MODEL_FAST : MODEL;
+
   const completion = await groq.chat.completions.create({
-    model: MODEL,
+    model,
     temperature: options?.jsonMode ? INSTAGRAM_TEMPERATURE : DEFAULT_TEMPERATURE,
     max_tokens: MAX_OUTPUT_TOKENS,
     ...(options?.jsonMode && { response_format: { type: "json_object" } }),

@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { toast } from "sonner";
+
 interface InstagramData {
   slides: string[];
   caption: string;
@@ -8,11 +11,67 @@ interface InstagramData {
 
 interface InstagramPreviewProps {
   content: string;
+  outputId?: string;
+  previousContent?: string;
+  onRestored?: (newContent: string) => void;
+  onContentUpdated?: (newContent: string) => void;
 }
 
-export function InstagramPreview({ content }: InstagramPreviewProps) {
-  let data: InstagramData;
+export function InstagramPreview({ content, outputId, previousContent, onRestored, onContentUpdated }: InstagramPreviewProps) {
+  const [restoring, setRestoring] = useState(false);
+  const [refreshingHashtags, setRefreshingHashtags] = useState(false);
 
+  async function handleRestore() {
+    if (!outputId || !previousContent) return;
+    setRestoring(true);
+    try {
+      const res = await fetch(`/api/outputs/${outputId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: previousContent }),
+      });
+      if (res.ok) {
+        onRestored?.(previousContent);
+        toast.success("Restored previous version");
+      } else {
+        toast.error("Failed to restore.");
+      }
+    } catch {
+      toast.error("Failed to restore.");
+    } finally {
+      setRestoring(false);
+    }
+  }
+
+  async function handleRefreshHashtags() {
+    if (!outputId) return;
+    setRefreshingHashtags(true);
+    try {
+      const res = await fetch(`/api/outputs/${outputId}/hashtags`, { method: "POST" });
+      if (res.ok) {
+        const result = await res.json() as { hashtags: string[] };
+        const updated = JSON.stringify({ ...data, hashtags: result.hashtags });
+        onContentUpdated?.(updated);
+        toast.success("Hashtags refreshed");
+      } else {
+        toast.error("Failed to refresh hashtags.");
+      }
+    } catch {
+      toast.error("Failed to refresh hashtags.");
+    } finally {
+      setRefreshingHashtags(false);
+    }
+  }
+
+  function handleCopyHashtags() {
+    if (!data) return;
+    const text = data.hashtags.map((t) => (t.startsWith("#") ? t : `#${t}`)).join(" ");
+    navigator.clipboard.writeText(text)
+      .then(() => toast.success("30 hashtags copied"))
+      .catch(() => toast.error("Failed to copy hashtags."));
+  }
+
+  let data: InstagramData;
   try {
     data = JSON.parse(content) as InstagramData;
   } catch {
@@ -25,9 +84,20 @@ export function InstagramPreview({ content }: InstagramPreviewProps) {
 
   return (
     <div className="space-y-5">
-      {/* Slide count badge */}
-      <div className="text-xs text-slate-400">
-        {data.slides.length} slides · {data.hashtags.length} hashtags
+      {/* Slide count badge + restore */}
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-slate-400">
+          {data.slides.length} slides · {data.hashtags.length} hashtags
+        </div>
+        {previousContent && outputId && (
+          <button
+            onClick={handleRestore}
+            disabled={restoring}
+            className="text-xs text-amber-400 hover:text-amber-300 border border-amber-400/30 hover:border-amber-400/60 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {restoring ? "Restoring…" : "↩ Restore Previous Version"}
+          </button>
+        )}
       </div>
 
       {/* Scrollable slide row */}
@@ -54,15 +124,39 @@ export function InstagramPreview({ content }: InstagramPreviewProps) {
       </div>
 
       {/* Hashtags */}
-      <div className="flex flex-wrap gap-2">
-        {data.hashtags.map((tag, i) => (
-          <span
-            key={i}
-            className="text-xs text-indigo-400 bg-indigo-900/30 border border-indigo-800/50 rounded-full px-2 py-0.5"
-          >
-            {tag.startsWith("#") ? tag : `#${tag}`}
-          </span>
-        ))}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Hashtags ({data.hashtags.length})
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopyHashtags}
+              className="text-xs text-slate-400 hover:text-slate-300 border border-slate-700 hover:border-slate-600 px-2 py-0.5 rounded-lg transition-colors"
+            >
+              Copy all
+            </button>
+            {outputId && (
+              <button
+                onClick={handleRefreshHashtags}
+                disabled={refreshingHashtags}
+                className="text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-800/50 hover:border-indigo-700 px-2 py-0.5 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {refreshingHashtags ? "Refreshing…" : "Refresh Hashtags"}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {data.hashtags.map((tag, i) => (
+            <span
+              key={i}
+              className="text-xs text-indigo-400 bg-indigo-900/30 border border-indigo-800/50 rounded-full px-2 py-0.5"
+            >
+              {tag.startsWith("#") ? tag : `#${tag}`}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -120,19 +120,25 @@
 
 ---
 ## Google Gemini API (gemini-2.0-flash)
-**Role:** Generates all platform-specific social media content (Facebook, TikTok, Instagram, LinkedIn, Twitter) and image prompts from the user's source text.
+**Role:** Generates all platform-specific social media content (Facebook, TikTok, Instagram, LinkedIn, Twitter) and image prompts from the user's source text. In the expansion phase (Weeks 7–10), also used for content quality scoring, source summarization, hashtag optimisation, and tone A/B comparison.
 **Version:** Model: `llama-3.3-70b-versatile`; SDK: `groq-sdk` (latest)
 **Why chosen over alternatives:** Only capable AI model with a **permanent free tier** — 14,400 requests/day, no credit card required. Satisfies Constraint 1 (zero budget). Output quality is equivalent to claude-sonnet for structured content generation tasks. Anthropic Claude API has no permanent free tier; Google Gemini free tier quota was unavailable in the deployment region (DEC-16).
 **Get API key:** Go to `https://console.groq.com` → Sign up → API Keys → Create API key. Free. No billing required.
 **Configuration needed:**
 - `GROQ_API_KEY` must be server-only (no `NEXT_PUBLIC_` prefix); never imported in client components.
-- `src/lib/ai.ts` exports two functions: `generateContent()` (non-streaming, `Promise<string>`) for initial parallel generation, and `streamContent()` (returns `ReadableStream`) for per-channel regeneration (DEC-09).
-- `POST /api/projects/[id]/generate` calls `generateContent()` via `Promise.all([facebook, tiktok, instagram])` — sequential calls are forbidden as they violate NFR-01 (DEC-11).
-- Brand voice tone and keywords from the user's `profiles` document must be injected into every prompt call (FR-GEN-06, FR-SET-04).
-- Instagram calls use `response_format: { type: "json_object" }` and `temperature: 0.4`; all other calls use `temperature: 0.7`, `max_tokens: 1500` (DEC-16, DEC-18).
-- Routes that call this service must declare `export const maxDuration = 60` as first line (DEC-19).
-**Connects to:** Next.js API Routes (server-side only), Appwrite Database (outputs saved after generation), channel prompt files in `src/lib/prompts/`
-**Decision reference:** DEC-06, DEC-09, DEC-11, DEC-12, DEC-16, DEC-18, DEC-19
+- `src/lib/ai.ts` exports two functions: `generateContent()` (non-streaming, `Promise<string>`) for initial parallel generation and all expansion AI features, and `streamContent()` (returns `ReadableStream`) for per-channel regeneration (DEC-09).
+- `POST /api/projects/[id]/generate` calls `generateContent()` via `Promise.all([facebook, tiktok, instagram, linkedin, twitter])` — all 5 channels simultaneously (DEC-20). Sequential calls are forbidden as they violate NFR-01 (DEC-11).
+- Brand voice tone and keywords from the user's `profiles` document must be injected into every channel prompt call (FR-GEN-06, FR-SET-04). Not injected into quality-score, summarize, or hashtag-optimizer prompts (each has its own temperature and JSON mode settings — see DEC-21, DEC-25, DEC-26).
+- Instagram initial generation uses `response_format: { type: "json_object" }` and `temperature: 0.4`; quality scoring uses `temperature: 0.2` and JSON mode; summarization uses `temperature: 0.3`; hashtag optimisation uses `temperature: 0.4` and JSON mode; all channel generation calls use `temperature: 0.7`, `max_tokens: 1500` (DEC-16, DEC-18, DEC-21).
+- Routes that call this service must declare `export const maxDuration = 60` as first line (DEC-19). This applies to all new expansion routes: `/api/outputs/[id]/score`, `/api/projects/[id]/compare`, `/api/outputs/[id]/hashtags`.
+**Expansion prompt files added (Weeks 7–10):**
+- `src/lib/prompts/quality-score.ts` — 4-criteria evaluation returning structured JSON score (DEC-21)
+- `src/lib/prompts/summarize.ts` — condenses source content >8,000 chars to 2,500–3,000 chars (DEC-25)
+- `src/lib/prompts/hashtag-optimizer.ts` — re-ranks Instagram hashtags using slides as context (DEC-26)
+- Tone A/B comparison reuses existing channel prompts with different `buildBrandVoicePrompt()` args (DEC-24)
+**Free tier headroom (expansion):** Initial generation: 5 calls/project. Quality scoring: 5 calls/project (auto-triggered). Source summarization: 1 call/project (conditional on >8,000 chars). Hashtag optimisation: 1 call (user-triggered). Tone comparison: 2 calls (user-triggered). At 14,400 req/day free limit, a user would need to generate ~1,000 projects/day to approach the cap — no quota risk for demo or portfolio use.
+**Connects to:** Next.js API Routes (server-side only), Appwrite Database (outputs saved after generation), channel prompt files and expansion prompt files in `src/lib/prompts/`
+**Decision reference:** DEC-06, DEC-09, DEC-11, DEC-12, DEC-16, DEC-18, DEC-19, DEC-20, DEC-21, DEC-24, DEC-25, DEC-26
 
 ---
 ## AssemblyAI REST API
@@ -153,15 +159,17 @@
 
 ---
 ## Recharts
-**Role:** Renders the analytics bar chart showing projects created per day over the last 7 days on the dashboard (FR-ANAL-02).
+**Role:** Renders analytics charts on the dashboard. Core MVP: projects-per-day bar chart (FR-ANAL-02). Expansion phase (Week 8): platform breakdown bar chart, source type distribution chart, and 28-day trend line chart (FR-ANAL-03, FR-ANAL-04, FR-ANAL-05).
 **Version:** Latest (`recharts@2`)
-**Why chosen over alternatives:** React-native charting library with no D3 expertise required; `BarChart` component integrates directly into the dashboard page without a canvas wrapper.
+**Why chosen over alternatives:** React-native charting library with no D3 expertise required; `BarChart`, `LineChart`, and `PieChart` components integrate directly into the dashboard page without a canvas wrapper.
 **Configuration needed:**
-- Import `BarChart`, `Bar`, `XAxis`, `YAxis`, `Tooltip`, `ResponsiveContainer` from `recharts`.
-- Wrap the chart in `<ResponsiveContainer width="100%" height={300}>` for mobile responsiveness (NFR-05).
-- Data shape: `{ date: "Mon", count: 3 }[]` — derive from `projects` collection filtered to the last 7 days.
-- Component must be a Client Component (`"use client"`) as Recharts uses browser APIs.
-**Connects to:** Next.js dashboard page (`src/app/dashboard/page.tsx`), Appwrite Database (project creation timestamps)
+- Core imports: `BarChart`, `Bar`, `LineChart`, `Line`, `PieChart`, `Pie`, `Cell`, `XAxis`, `YAxis`, `Tooltip`, `Legend`, `ResponsiveContainer` from `recharts`.
+- Wrap every chart in `<ResponsiveContainer width="100%" height={300}>` for mobile responsiveness (NFR-05).
+- Bar chart data shape (per-day): `{ date: "Mon", count: 3 }[]` — filtered to last 28 days (expanded from 7 in Week 8).
+- Platform breakdown data shape: `{ channel: "facebook", count: 12 }[]` — one entry per channel, derived from `outputs` grouped by `channel`.
+- Source type data shape: `{ type: "url", count: 8 }[]` — derived from `projects` grouped by `sourceType`.
+- All chart components must be Client Components (`"use client"`) as Recharts uses browser APIs.
+**Connects to:** `src/app/dashboard/page.tsx`, Appwrite Database (project and output timestamps, channel and sourceType fields)
 **Decision reference:** none
 
 ---

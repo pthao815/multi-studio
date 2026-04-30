@@ -426,3 +426,258 @@ id: string  // Appwrite outputs collection document ID
 **Frontend calls this from:** `src/components/preview/ImagePromptButton.tsx`
 **Backend implements in:** `src/app/api/outputs/[id]/image-prompt/route.ts`
 **DEC reference:** DEC-05, DEC-12
+
+---
+
+## PUT /api/projects/[id]/source  [Expansion Week 8]
+
+**Auth required:** yes
+**Session source:** `appwrite-session` cookie
+
+**Request:**
+```typescript
+// Headers
+{ "Content-Type": "application/json" }
+
+// Path parameter
+id: string  // Appwrite projects collection document ID
+
+// Body (all fields optional — only provided fields are updated)
+{
+  sourceContent?:     string  // updated source text (user-edited in source preview panel)
+  summarisedContent?: string  // updated summary (set when user overrides auto-summary)
+  title?:             string  // updated project title (user-edited inline)
+}
+```
+
+**Response — Success:**
+```typescript
+// Status: 200
+{
+  id:               string
+  title:            string
+  sourceContent:    string
+  updatedAt:        string  // ISO 8601
+}
+```
+
+**Response — Error:**
+```typescript
+// Status: 400 | 403 | 500
+{
+  error: string
+  code:  string
+}
+```
+
+**Error codes defined:**
+| Code | Status | Trigger |
+|---|---|---|
+| `UNAUTHORIZED` | 403 | Session `userId` does not match `project.userId` |
+| `NO_FIELDS` | 400 | Request body contains none of the three optional fields |
+| `UPDATE_FAILED` | 500 | Appwrite `databases.updateDocument()` throws |
+
+**Note:** Only updates the fields provided in the request body. Status, userId, sourceType, and audioFileId are never modified by this route. Called on textarea blur in the source preview panel (FR-SRC-03) and after auto-summarisation saves `summarisedContent` (DEC-25).
+
+**Frontend calls this from:** `src/app/dashboard/new/page.tsx` (source preview panel)
+**Backend implements in:** `src/app/api/projects/[id]/source/route.ts`
+**DEC reference:** DEC-05, DEC-25
+
+---
+
+## POST /api/projects/[id]/duplicate  [Expansion Week 8]
+
+**Auth required:** yes
+**Session source:** `appwrite-session` cookie
+
+**Request:**
+```typescript
+// Headers
+{ "Cookie": "appwrite-session=..." }
+
+// Path parameter
+id: string  // Appwrite projects collection document ID to duplicate
+
+// Body: none
+```
+
+**Response — Success:**
+```typescript
+// Status: 201
+{
+  newProjectId: string  // Appwrite document ID of the newly created project
+}
+```
+
+**Response — Error:**
+```typescript
+// Status: 403 | 404 | 500
+{
+  error: string
+  code:  string
+}
+```
+
+**Error codes defined:**
+| Code | Status | Trigger |
+|---|---|---|
+| `UNAUTHORIZED` | 403 | Session `userId` does not match `project.userId` |
+| `PROJECT_NOT_FOUND` | 404 | No document with given `id` in the projects collection |
+| `DUPLICATE_FAILED` | 500 | Appwrite `databases.createDocument()` throws |
+
+**Note:** Creates a new `projects` document with `sourceType`, `sourceContent`, `summarisedContent` (if present), and `title` (original title + " (copy)") copied from the original. New document has `status: "pending"`, empty `audioFileId` and `transcription`, and fresh `createdAt`/`updatedAt` timestamps. No `outputs` documents are copied (DEC-23). The client navigates to the new project page on success.
+
+**Frontend calls this from:** `src/app/dashboard/page.tsx` (Duplicate button on project card)
+**Backend implements in:** `src/app/api/projects/[id]/duplicate/route.ts`
+**DEC reference:** DEC-05, DEC-23
+
+---
+
+## POST /api/projects/[id]/compare  [Expansion Week 9]
+
+**Auth required:** yes
+**Session source:** `appwrite-session` cookie
+
+**Request:**
+```typescript
+// Headers
+{ "Content-Type": "application/json" }
+
+// Path parameter
+id: string  // Appwrite projects collection document ID
+
+// Body
+{
+  outputId: string      // Appwrite outputs document ID for the channel being compared
+  toneA:    BrandVoice  // "energetic" | "educational" | "funny" | "calm"
+  toneB:    BrandVoice  // "energetic" | "educational" | "funny" | "calm"; must differ from toneA
+}
+```
+
+**Response — Success:**
+```typescript
+// Status: 200
+{
+  contentA: string  // generated content using toneA
+  contentB: string  // generated content using toneB
+}
+```
+
+**Response — Error:**
+```typescript
+// Status: 400 | 403 | 500
+{
+  error: string
+  code:  string
+}
+```
+
+**Error codes defined:**
+| Code | Status | Trigger |
+|---|---|---|
+| `UNAUTHORIZED` | 403 | Session `userId` does not match `project.userId` or `output.userId` |
+| `SAME_TONE` | 400 | `toneA === toneB` |
+| `COMPARE_FAILED` | 500 | Either `generateContent()` call throws, or either result fails the DEC-17 refusal check |
+
+**Note:** Fetches the project's `summarisedContent || sourceContent` and the output's `channel`. Fires two `generateContent()` calls in parallel via `Promise.all`, each using the same channel prompt but different `buildBrandVoicePrompt()` fragments. Neither result is written to the database — both are returned to the client for display in `ToneCompareModal.tsx` (DEC-24). If the user selects a version, the client calls `PUT /api/outputs/[id]` separately to save it. Route must declare `export const maxDuration = 60` (DEC-19).
+
+**Frontend calls this from:** `src/components/preview/ToneCompareModal.tsx`
+**Backend implements in:** `src/app/api/projects/[id]/compare/route.ts`
+**DEC reference:** DEC-05, DEC-19, DEC-24
+
+---
+
+## POST /api/outputs/[id]/score  [Expansion Week 9]
+
+**Auth required:** yes
+**Session source:** `appwrite-session` cookie
+
+**Request:**
+```typescript
+// Headers
+{ "Cookie": "appwrite-session=..." }
+
+// Path parameter
+id: string  // Appwrite outputs collection document ID
+
+// Body: none — output content and channel fetched server-side from Appwrite
+```
+
+**Response — Success:**
+```typescript
+// Status: 200
+{
+  qualityScore: string  // raw JSON string: { total, hook, cta, platformFit, brandAlignment, tip }
+}
+```
+
+**Response — Error:**
+```typescript
+// Status: 400 | 403 | 500
+{
+  error: string
+  code:  string
+}
+```
+
+**Error codes defined:**
+| Code | Status | Trigger |
+|---|---|---|
+| `UNAUTHORIZED` | 403 | Session `userId` does not match `output.userId` |
+| `SCORE_FAILED` | 400 | Parsed score object fails invariant (`hook + cta + platformFit + brandAlignment !== total`) or any field is missing |
+| `SCORE_GENERATION_FAILED` | 500 | `generateContent()` throws, or Appwrite `updateDocument` to `qualityScore` field fails |
+
+**Note:** Uses `generateContent()` (non-streaming) with `buildQualityScorePrompt(channel, brandVoice)` from `src/lib/prompts/quality-score.ts`. Calls `temperature: 0.2` and `response_format: { type: "json_object" }` to maximise score consistency (DEC-21). Validates the invariant sum before saving. Result is saved to `outputs.qualityScore` as a raw JSON string and also returned in the response for immediate display. Route must declare `export const maxDuration = 60` (DEC-19).
+
+**Frontend calls this from:** `src/app/dashboard/projects/[id]/page.tsx` (auto-triggered after generation and regeneration)
+**Backend implements in:** `src/app/api/outputs/[id]/score/route.ts`
+**DEC reference:** DEC-05, DEC-19, DEC-21
+
+---
+
+## POST /api/outputs/[id]/hashtags  [Expansion Week 9]
+
+**Auth required:** yes
+**Session source:** `appwrite-session` cookie
+
+**Request:**
+```typescript
+// Headers
+{ "Cookie": "appwrite-session=..." }
+
+// Path parameter
+id: string  // Appwrite outputs collection document ID (must be an instagram channel output)
+
+// Body: none — slides content fetched from output.content server-side
+```
+
+**Response — Success:**
+```typescript
+// Status: 200
+{
+  hashtags: string[]  // the 30 newly optimised hashtag strings (without # prefix)
+}
+```
+
+**Response — Error:**
+```typescript
+// Status: 400 | 403 | 500
+{
+  error: string
+  code:  string
+}
+```
+
+**Error codes defined:**
+| Code | Status | Trigger |
+|---|---|---|
+| `UNAUTHORIZED` | 403 | Session `userId` does not match `output.userId` |
+| `WRONG_CHANNEL` | 400 | `output.channel !== "instagram"` |
+| `HASHTAG_FAILED` | 400 | `hashtags.length !== 30` after parsing the AI response |
+| `HASHTAG_GENERATION_FAILED` | 500 | `generateContent()` throws, or Appwrite `updateDocument` fails |
+
+**Note:** Fetches output, verifies channel is `"instagram"`, calls `JSON.parse(output.content)` to get `{ slides, caption, hashtags }`. Joins `slides` with `\n\n` as the prompt input. Calls `generateContent()` with `buildHashtagOptimizerPrompt()` using `temperature: 0.4` and JSON mode. After validation, reconstructs the Instagram JSON object via `{ ...existing, hashtags: newHashtags }` and saves via `databases.updateDocument({ content: JSON.stringify(merged) })`. The `slides` and `caption` fields are never modified (DEC-26). Route must declare `export const maxDuration = 60` (DEC-19).
+
+**Frontend calls this from:** `src/components/preview/InstagramPreview.tsx` (Refresh Hashtags button)
+**Backend implements in:** `src/app/api/outputs/[id]/hashtags/route.ts`
+**DEC reference:** DEC-05, DEC-06, DEC-19, DEC-26

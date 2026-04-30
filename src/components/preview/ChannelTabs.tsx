@@ -6,6 +6,8 @@ const TABS: { channel: ChannelType; label: string }[] = [
   { channel: "facebook", label: "Facebook" },
   { channel: "tiktok", label: "TikTok" },
   { channel: "instagram", label: "Instagram" },
+  { channel: "linkedin", label: "LinkedIn" },
+  { channel: "twitter", label: "Twitter / X" },
 ];
 
 interface ChannelTabsProps {
