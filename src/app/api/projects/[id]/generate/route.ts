@@ -9,6 +9,7 @@ import { buildTikTokPrompt } from "@/lib/prompts/tiktok";
 import { buildInstagramPrompt } from "@/lib/prompts/instagram";
 import { buildLinkedInPrompt } from "@/lib/prompts/linkedin";
 import { buildTwitterPrompt } from "@/lib/prompts/twitter";
+import { detectLanguage } from "@/lib/language";
 import type { Project, Profile } from "@/types";
 
 const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DB_ID!;
@@ -89,12 +90,15 @@ export async function POST(
     sourceContent = sourceContent.slice(0, MAX_SOURCE_CONTENT_LENGTH) + "…[content truncated]";
   }
 
+  // Detect language from source content — drives all prompt language instructions
+  const language = detectLanguage(sourceContent);
+
   // Build prompts
-  const facebookPrompt = buildFacebookPrompt(brandVoice, brandKeywords);
-  const tiktokPrompt = buildTikTokPrompt(brandVoice, brandKeywords);
-  const instagramPrompt = buildInstagramPrompt(brandVoice, brandKeywords);
-  const linkedinPrompt = buildLinkedInPrompt(brandVoice, brandKeywords);
-  const twitterPrompt = buildTwitterPrompt(brandVoice, brandKeywords);
+  const facebookPrompt = buildFacebookPrompt(brandVoice, brandKeywords, language);
+  const tiktokPrompt = buildTikTokPrompt(brandVoice, brandKeywords, language);
+  const instagramPrompt = buildInstagramPrompt(brandVoice, brandKeywords, language);
+  const linkedinPrompt = buildLinkedInPrompt(brandVoice, brandKeywords, language);
+  const twitterPrompt = buildTwitterPrompt(brandVoice, brandKeywords, language);
 
   // Run all 5 AI calls in parallel — sequential calls are forbidden (DEC-11)
   let facebookContent: string;

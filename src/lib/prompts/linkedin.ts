@@ -1,6 +1,9 @@
+import { languageInstruction, type Language } from "@/lib/language";
+
 export function buildLinkedInPrompt(
   brandVoice: string,
-  brandKeywords: string[]
+  brandKeywords: string[],
+  language: Language = "en"
 ): string {
   const keywords = brandKeywords.length > 0 ? brandKeywords.join(", ") : "none";
 
@@ -26,5 +29,5 @@ TONE:
 
 OUTPUT:
 - Return only the post text, ready to copy-paste to LinkedIn
-- No markdown headers`;
+- No markdown headers${languageInstruction(language)}`;
 }

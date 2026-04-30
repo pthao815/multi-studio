@@ -1,6 +1,9 @@
+import { languageInstruction, type Language } from "@/lib/language";
+
 export function buildTwitterPrompt(
   brandVoice: string,
-  brandKeywords: string[]
+  brandKeywords: string[],
+  language: Language = "en"
 ): string {
   const keywords = brandKeywords.length > 0 ? brandKeywords.join(", ") : "none";
 
@@ -30,5 +33,5 @@ OUTPUT FORMAT:
 
 ... (continue for all 10 tweets)
 
-No extra commentary.`;
+No extra commentary.${languageInstruction(language)}`;
 }

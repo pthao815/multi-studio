@@ -1,9 +1,11 @@
 import { buildBrandVoicePrompt } from "@/lib/ai";
 import type { BrandVoice } from "@/types";
+import { languageInstruction, type Language } from "@/lib/language";
 
 export function buildFacebookPrompt(
   brandVoice: BrandVoice | string,
-  brandKeywords: string[]
+  brandKeywords: string[],
+  language: Language = "en"
 ): { system: string; user: string } {
   const brandVoiceFragment = buildBrandVoicePrompt(
     brandVoice as BrandVoice,
@@ -22,7 +24,7 @@ Write a Facebook post based on the content provided. Follow these rules exactly:
 - Do not include a title, heading, or subject line
 - Output plain text only — no markdown formatting
 
-${brandVoiceFragment}`;
+${brandVoiceFragment}${languageInstruction(language)}`;
 
   const user = `Convert the following content into a Facebook post:`;
 

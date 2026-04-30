@@ -1,9 +1,11 @@
 import { buildBrandVoicePrompt } from "@/lib/ai";
 import type { BrandVoice } from "@/types";
+import { languageInstruction, type Language } from "@/lib/language";
 
 export function buildInstagramPrompt(
   brandVoice: BrandVoice | string,
-  brandKeywords: string[]
+  brandKeywords: string[],
+  language: Language = "en"
 ): { system: string; user: string } {
   const brandVoiceFragment = buildBrandVoicePrompt(
     brandVoice as BrandVoice,
@@ -32,10 +34,10 @@ Rules for caption:
 
 Rules for hashtags (the array must contain exactly 30 strings):
 - Each string is the hashtag text without the # symbol
-- All lowercase, no spaces, no special characters other than letters and digits
+- All lowercase, no spaces, no special characters — ASCII letters and digits only (no diacritical marks)
 - Distribute across three tiers: 10 broad/popular tags (over 1M posts), 10 niche-specific tags (100K–1M posts), 10 content-specific tags (under 100K posts or highly targeted to the subject matter)
 
-${brandVoiceFragment}`;
+${brandVoiceFragment}${languageInstruction(language)}`;
 
   const user = `Convert the following content into an Instagram carousel post:`;
 

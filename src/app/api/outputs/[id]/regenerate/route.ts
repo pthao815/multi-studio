@@ -9,6 +9,7 @@ import { buildTikTokPrompt } from "@/lib/prompts/tiktok";
 import { buildInstagramPrompt } from "@/lib/prompts/instagram";
 import { buildLinkedInPrompt } from "@/lib/prompts/linkedin";
 import { buildTwitterPrompt } from "@/lib/prompts/twitter";
+import { detectLanguage } from "@/lib/language";
 import type { Output, Project, Profile, ChannelType } from "@/types";
 
 const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DB_ID!;
@@ -100,32 +101,33 @@ export async function POST(
     // fall through with defaults
   }
 
-  let sourceContent = project.sourceContent;
+  let sourceContent = project.summarisedContent || project.sourceContent;
   if (sourceContent.length > MAX_SOURCE_CONTENT_LENGTH) {
     sourceContent = sourceContent.slice(0, MAX_SOURCE_CONTENT_LENGTH) + "…[content truncated]";
   }
 
+  const language = detectLanguage(sourceContent);
   const channel = output.channel as ChannelType;
   let systemPrompt: string;
   let userPrompt: string;
 
   if (channel === "facebook") {
-    const p = buildFacebookPrompt(brandVoice, brandKeywords);
+    const p = buildFacebookPrompt(brandVoice, brandKeywords, language);
     systemPrompt = p.system;
     userPrompt = p.user + "\n\n" + sourceContent;
   } else if (channel === "tiktok") {
-    const p = buildTikTokPrompt(brandVoice, brandKeywords);
+    const p = buildTikTokPrompt(brandVoice, brandKeywords, language);
     systemPrompt = p.system;
     userPrompt = p.user + "\n\n" + sourceContent;
   } else if (channel === "instagram") {
-    const p = buildInstagramPrompt(brandVoice, brandKeywords);
+    const p = buildInstagramPrompt(brandVoice, brandKeywords, language);
     systemPrompt = p.system;
     userPrompt = p.user + "\n\n" + sourceContent;
   } else if (channel === "linkedin") {
-    systemPrompt = buildLinkedInPrompt(brandVoice, brandKeywords);
+    systemPrompt = buildLinkedInPrompt(brandVoice, brandKeywords, language);
     userPrompt = sourceContent;
   } else if (channel === "twitter") {
-    systemPrompt = buildTwitterPrompt(brandVoice, brandKeywords);
+    systemPrompt = buildTwitterPrompt(brandVoice, brandKeywords, language);
     userPrompt = sourceContent;
   } else {
     return new Response(JSON.stringify({ error: "Unsupported channel" }), {

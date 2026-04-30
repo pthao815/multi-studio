@@ -5,6 +5,7 @@ import { Client, Account, Query } from "node-appwrite";
 import { serverDatabases } from "@/lib/appwrite-server";
 import { generateContent } from "@/lib/ai";
 import { buildQualityScorePrompt } from "@/lib/prompts/quality-score";
+import { detectLanguage } from "@/lib/language";
 import type { Output, Profile } from "@/types";
 
 const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DB_ID!;
@@ -68,7 +69,8 @@ export async function POST(
     // Fall through with calm default
   }
 
-  const prompt = buildQualityScorePrompt(output.channel, brandVoice);
+  const language = detectLanguage(output.content);
+  const prompt = buildQualityScorePrompt(output.channel, brandVoice, language);
 
   let qualityScore: string;
   try {

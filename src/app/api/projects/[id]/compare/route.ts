@@ -9,6 +9,7 @@ import { buildTikTokPrompt } from "@/lib/prompts/tiktok";
 import { buildInstagramPrompt } from "@/lib/prompts/instagram";
 import { buildLinkedInPrompt } from "@/lib/prompts/linkedin";
 import { buildTwitterPrompt } from "@/lib/prompts/twitter";
+import { detectLanguage } from "@/lib/language";
 import type { Project, Output, Profile, BrandVoice, ChannelType } from "@/types";
 
 const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DB_ID!;
@@ -23,17 +24,20 @@ function getSessionClient(jwt: string) {
     .setJWT(jwt);
 }
 
+import { type Language } from "@/lib/language";
+
 function buildChannelPrompt(
   channel: ChannelType,
   toneA: BrandVoice,
-  keywords: string[]
+  keywords: string[],
+  language: Language
 ): { system: string; user: string } | string {
   switch (channel) {
-    case "facebook": return buildFacebookPrompt(toneA, keywords);
-    case "tiktok": return buildTikTokPrompt(toneA, keywords);
-    case "instagram": return buildInstagramPrompt(toneA, keywords);
-    case "linkedin": return buildLinkedInPrompt(toneA, keywords);
-    case "twitter": return buildTwitterPrompt(toneA, keywords);
+    case "facebook": return buildFacebookPrompt(toneA, keywords, language);
+    case "tiktok": return buildTikTokPrompt(toneA, keywords, language);
+    case "instagram": return buildInstagramPrompt(toneA, keywords, language);
+    case "linkedin": return buildLinkedInPrompt(toneA, keywords, language);
+    case "twitter": return buildTwitterPrompt(toneA, keywords, language);
   }
 }
 
@@ -107,10 +111,11 @@ export async function POST(
   }
 
   const channel = output.channel;
+  const language = detectLanguage(sourceContent);
 
   // Build prompts for both tones
-  const promptA = buildChannelPrompt(channel, toneA, brandKeywords);
-  const promptB = buildChannelPrompt(channel, toneB, brandKeywords);
+  const promptA = buildChannelPrompt(channel, toneA, brandKeywords, language);
+  const promptB = buildChannelPrompt(channel, toneB, brandKeywords, language);
 
   function callGenerate(prompt: { system: string; user: string } | string): Promise<string> {
     if (typeof prompt === "string") {

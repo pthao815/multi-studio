@@ -1,9 +1,11 @@
 import { buildBrandVoicePrompt } from "@/lib/ai";
 import type { BrandVoice } from "@/types";
+import { languageInstruction, type Language } from "@/lib/language";
 
 export function buildTikTokPrompt(
   brandVoice: BrandVoice | string,
-  brandKeywords: string[]
+  brandKeywords: string[],
+  language: Language = "en"
 ): { system: string; user: string } {
   const brandVoiceFragment = buildBrandVoicePrompt(
     brandVoice as BrandVoice,
@@ -22,7 +24,7 @@ Write a TikTok video script based on the content provided. Follow these rules ex
 - Do not add any labels, headings, or metadata other than the [Scene X] markers and the sound suggestion line
 - Output plain text only
 
-${brandVoiceFragment}`;
+${brandVoiceFragment}${languageInstruction(language)}`;
 
   const user = `Convert the following content into a TikTok video script:`;
 
